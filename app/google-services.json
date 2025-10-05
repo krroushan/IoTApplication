@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "967778749867",
+    "project_id": "ampush-iot",
+    "storage_bucket": "ampush-iot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:967778749867:android:3435ff7f07cb5d7d3096ee",
+        "android_client_info": {
+          "package_name": "com.ampush.iotapplication"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmU2AN8b6-w7ZAB72N1WW3kjFTkpqDWjY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
