@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -17,6 +18,9 @@ import androidx.navigation.compose.rememberNavController
 import com.ampush.iotapplication.navigation.NavigationItem
 import com.ampush.iotapplication.navigation.navigationItems
 import com.ampush.iotapplication.ui.components.Dashboard
+import com.ampush.iotapplication.ui.components.DefaultDeviceSelectionDialog
+import com.ampush.iotapplication.data.manager.DeviceManager
+import com.ampush.iotapplication.data.manager.DefaultDeviceManager
 import com.ampush.iotapplication.ui.screens.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,15 +30,19 @@ fun MainScreen() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     
+    // Default device dialog state
+    var showDefaultDeviceDialog by remember { mutableStateOf(false) }
+    var defaultDeviceRefreshTrigger by remember { mutableStateOf(0) }
+    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = when (currentRoute) {
-                            NavigationItem.Dashboard.route -> "Motor Control"
+                            NavigationItem.Dashboard.route -> "Ampush"
                             NavigationItem.Analytics.route -> "Analytics"
-                            NavigationItem.History.route -> "History"
+                            NavigationItem.History.route -> "Motor History"
                             NavigationItem.Profile.route -> "Profile"
                             else -> "IoT Control"
                         },
@@ -52,7 +60,7 @@ fun MainScreen() {
                             contentDescription = "Notifications"
                         )
                     }
-                    IconButton(onClick = { /* TODO: Settings */ }) {
+                    IconButton(onClick = { showDefaultDeviceDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings"
@@ -105,7 +113,7 @@ fun MainScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(NavigationItem.Dashboard.route) {
-                Dashboard()
+                Dashboard(refreshKey = defaultDeviceRefreshTrigger)
             }
             composable(NavigationItem.Analytics.route) {
                 AnalyticsScreen()
@@ -119,6 +127,28 @@ fun MainScreen() {
             composable("fcm_debug") {
                 FcmDebugScreen()
             }
+        }
+        
+        // Default Device Selection Dialog
+        if (showDefaultDeviceDialog) {
+            val context = LocalContext.current
+            val deviceManager = remember { DeviceManager(context) }
+            val defaultDeviceManager = remember { DefaultDeviceManager(context) }
+            val savedDevices = remember { deviceManager.getSavedDevices() }
+            val currentDefaultDevice = remember { defaultDeviceManager.getDefaultDevice() }
+            
+            DefaultDeviceSelectionDialog(
+                devices = savedDevices,
+                currentDefaultDevice = currentDefaultDevice,
+                onDeviceSelected = { device ->
+                    // Trigger refresh of dashboard
+                    defaultDeviceRefreshTrigger++
+                    showDefaultDeviceDialog = false
+                },
+                onDismiss = {
+                    showDefaultDeviceDialog = false
+                }
+            )
         }
     }
 }

@@ -34,6 +34,22 @@ interface ApiService {
         @Query("size") size: Int = 100
     ): Response<PaginatedLogsResponse>
     
+    @GET("logs")
+    suspend fun getLogsByDeviceId(
+        @Query("deviceId") deviceId: Int,
+        @Query("startDate") startDate: String? = null,
+        @Query("endDate") endDate: String? = null,
+        @Query("phoneNumber") phoneNumber: String? = null,
+        @Query("motorStatus") motorStatus: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 100
+    ): Response<PaginatedLogsResponse>
+    
+    @GET("validate-phone")
+    suspend fun validatePhoneNumber(
+        @Query("phone") phone: String
+    ): Response<PhoneValidationResponse>
+    
     @GET("logs/{id}")
     suspend fun getLog(@Path("id") id: Long): Response<MotorLogEntity>
     

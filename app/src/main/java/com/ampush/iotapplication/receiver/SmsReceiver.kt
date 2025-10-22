@@ -10,6 +10,7 @@ import com.ampush.iotapplication.data.parser.SmsParser
 import com.ampush.iotapplication.notifications.NotificationHelper
 import com.ampush.iotapplication.network.WebhookService
 import com.ampush.iotapplication.utils.Logger
+import com.ampush.iotapplication.data.manager.DeviceManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -18,13 +19,19 @@ class SmsReceiver : BroadcastReceiver() {
     
     private val parser = SmsParser()
     private val webhookService = WebhookService()
-    private val targetNumber = "+915754027372041"
     
     override fun onReceive(context: Context, intent: Intent) {
         Logger.d("SMS Receiver triggered", "SMS")
         if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
             val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
             Logger.d("Processing ${messages.size} SMS messages", "SMS")
+            
+            // Get customer's saved devices
+            val deviceManager = DeviceManager(context)
+            val savedDevices = deviceManager.getSavedDevices()
+            val deviceNumbers = savedDevices.map { it.smsNumber }
+            
+            Logger.d("Customer has ${savedDevices.size} devices: $deviceNumbers", "SMS")
             
             for (message in messages) {
                 val phoneNumber = message.originatingAddress
@@ -33,12 +40,12 @@ class SmsReceiver : BroadcastReceiver() {
                 Logger.logSmsReceived(phoneNumber ?: "Unknown", messageBody ?: "Empty")
                 Log.d("SmsReceiver", "Received SMS from: $phoneNumber, Body: $messageBody")
                 
-                // Only process messages from our target number
-                if (phoneNumber == targetNumber) {
-                    Logger.d("SMS from target number - processing", "SMS")
+                // Process SMS from any of customer's devices
+                if (phoneNumber != null && deviceNumbers.contains(phoneNumber)) {
+                    Logger.d("SMS from customer's device ($phoneNumber) - processing", "SMS")
                     processSms(context, messageBody, phoneNumber)
                 } else {
-                    Logger.d("SMS from non-target number ($phoneNumber) - ignoring", "SMS")
+                    Logger.d("SMS from non-device number ($phoneNumber) - ignoring", "SMS")
                 }
             }
         }

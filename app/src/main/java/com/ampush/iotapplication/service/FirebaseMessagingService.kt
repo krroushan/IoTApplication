@@ -54,8 +54,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         )
         
         val channelId = "motor_notifications"
+        
+        // Get app icon properly for large icon
+        val appIcon = packageManager.getApplicationIcon(packageName)
+        val largeIcon = android.graphics.Bitmap.createBitmap(
+            appIcon.intrinsicWidth,
+            appIcon.intrinsicHeight,
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val canvas = android.graphics.Canvas(largeIcon)
+        appIcon.setBounds(0, 0, canvas.width, canvas.height)
+        appIcon.draw(canvas)
+        
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_ic_notification)
+            .setLargeIcon(largeIcon)  // Shows actual app icon!
             .setContentTitle(title ?: "Motor Control")
             .setContentText(body ?: "New notification")
             .setAutoCancel(true)

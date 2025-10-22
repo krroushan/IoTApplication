@@ -86,8 +86,8 @@ fun SplashScreen(
             
             // App Name
             Text(
-                text = "IoT Controller",
-                style = MaterialTheme.typography.headlineLarge,
+                text = "Ampush Motor Controller",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.scale(alphaAnimation.value)

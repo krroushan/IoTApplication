@@ -70,8 +70,14 @@ data class MotorLogEntity(
     @SerializedName("id")
     val id: Long,
     
+    @SerializedName("deviceId")
+    val deviceId: Int?,
+    
+    @SerializedName("userId")
+    val userId: Int?,
+    
     @SerializedName("timestamp")
-    val timestamp: Long,
+    val timestamp: String,
     
     @SerializedName("motorStatus")
     val motorStatus: String,
@@ -83,7 +89,10 @@ data class MotorLogEntity(
     val current: Float?,
     
     @SerializedName("waterLevel")
-    val waterLevel: Float?,
+    val waterLevel: Int?,
+    
+    @SerializedName("runTime")
+    val runTime: Int?,
     
     @SerializedName("mode")
     val mode: String?,
@@ -97,14 +106,53 @@ data class MotorLogEntity(
     @SerializedName("phoneNumber")
     val phoneNumber: String,
     
+    @SerializedName("deviceName")
+    val deviceName: String?,
+    
     @SerializedName("isSynced")
     val isSynced: Boolean,
+    
+    @SerializedName("device")
+    val device: DeviceInfo?,
+    
+    @SerializedName("user")
+    val user: UserInfo?,
     
     @SerializedName("createdAt")
     val createdAt: String,
     
     @SerializedName("updatedAt")
     val updatedAt: String
+)
+
+// Device Info (nested in MotorLogEntity)
+data class DeviceInfo(
+    @SerializedName("id")
+    val id: Int,
+    
+    @SerializedName("name")
+    val name: String,
+    
+    @SerializedName("smsNumber")
+    val smsNumber: String,
+    
+    @SerializedName("isActive")
+    val isActive: Boolean
+)
+
+// User Info (nested in MotorLogEntity)
+data class UserInfo(
+    @SerializedName("id")
+    val id: Int,
+    
+    @SerializedName("name")
+    val name: String,
+    
+    @SerializedName("email")
+    val email: String,
+    
+    @SerializedName("phoneNumber")
+    val phoneNumber: String
 )
 
 // Paginated Logs Response

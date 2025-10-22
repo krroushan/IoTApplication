@@ -30,21 +30,36 @@ class FcmTokenManager(private val context: Context) {
      * Initialize FCM token and register with server
      */
     fun initializeFcmToken() {
+        Logger.d("=== FCM Token Initialization Started ===", "FCM_MANAGER")
         coroutineScope.launch {
             try {
                 // Check notification permission first
                 if (!PermissionManager.hasNotificationPermission(context)) {
                     Logger.w("Notification permission not granted, FCM token may not work properly", "FCM_MANAGER")
+                } else {
+                    Logger.d("Notification permission granted", "FCM_MANAGER")
+                }
+                
+                // Check if user is logged in
+                val authToken = sessionManager.getAccessToken()
+                if (authToken == null) {
+                    Logger.w("No auth token available - user not logged in yet", "FCM_MANAGER")
+                    Logger.w("FCM token will be sent to server after login", "FCM_MANAGER")
+                } else {
+                    Logger.d("Auth token available: ${authToken.take(20)}...", "FCM_MANAGER")
                 }
                 
                 // Get FCM token from Firebase
+                Logger.d("Requesting FCM token from Firebase...", "FCM_MANAGER")
                 val fcmToken = FirebaseMessaging.getInstance().token.await()
                 
                 if (fcmToken != null) {
-                    Logger.i("FCM token obtained: ${fcmToken.take(20)}...", "FCM_MANAGER")
+                    Logger.i("✅ FCM token obtained: ${fcmToken.take(20)}...", "FCM_MANAGER")
                     
                     // Check if token has changed
                     val savedToken = getSavedFcmToken()
+                    Logger.d("Saved token: ${savedToken?.take(20) ?: "null"}...", "FCM_MANAGER")
+                    
                     if (savedToken != fcmToken) {
                         Logger.d("FCM token changed, updating server", "FCM_MANAGER")
                         updateFcmTokenOnServer(fcmToken)
@@ -52,10 +67,11 @@ class FcmTokenManager(private val context: Context) {
                         Logger.d("FCM token unchanged, skipping update", "FCM_MANAGER")
                     }
                 } else {
-                    Logger.e("Failed to get FCM token", null, "FCM_MANAGER")
+                    Logger.e("❌ Failed to get FCM token from Firebase", null, "FCM_MANAGER")
                 }
             } catch (e: Exception) {
-                Logger.e("Error initializing FCM token", e, "FCM_MANAGER")
+                Logger.e("❌ Error initializing FCM token", e, "FCM_MANAGER")
+                Logger.e("Exception: ${e.javaClass.simpleName}: ${e.message}", null, "FCM_MANAGER")
             }
         }
     }

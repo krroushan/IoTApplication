@@ -440,9 +440,11 @@ private fun AboutSection(
                             // Log error but continue with local logout
                             com.ampush.iotapplication.utils.Logger.e("API logout failed", e, "PROFILE")
                         } finally {
-                            // Clear devices
+                            // Clear devices and FCM token
                             val deviceManager = DeviceManager(context)
                             deviceManager.clearDevices()
+                            val fcmTokenManager = FcmTokenManager(context)
+                            fcmTokenManager.clearFcmToken()
                             // Always perform local logout
                             sessionManager.logout()
                             // Restart app to go back to login
@@ -456,7 +458,7 @@ private fun AboutSection(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Default.ExitToApp,
+                    imageVector = Icons.Default.Lock,
                     contentDescription = "Logout"
                 )
                 Spacer(modifier = Modifier.width(8.dp))

@@ -29,6 +29,14 @@ import com.ampush.iotapplication.utils.SessionManager
 import com.ampush.iotapplication.data.manager.DeviceManager
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
+import com.ampush.iotapplication.utils.SimPhoneDetector
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
+import com.ampush.iotapplication.utils.PermissionHelper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.ampush.iotapplication.repository.PhoneValidationRepository
+import com.ampush.iotapplication.network.models.PhoneValidationResponse
 
 @Composable
 fun SimpleLoginScreen(
@@ -38,6 +46,12 @@ fun SimpleLoginScreen(
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var detectedPhoneNumber by remember { mutableStateOf<String?>(null) }
+    var allDetectedSims by remember { mutableStateOf<List<com.ampush.iotapplication.utils.SimInfo>>(emptyList()) }
+    var showSimDetection by remember { mutableStateOf(false) }
+    var showSimSelection by remember { mutableStateOf(false) }
+    var isValidatingPhone by remember { mutableStateOf(false) }
+    var phoneValidationResult by remember { mutableStateOf<PhoneValidationResponse?>(null) }
     
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
@@ -47,6 +61,94 @@ fun SimpleLoginScreen(
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val deviceManager = remember { DeviceManager(context) }
+    val simDetector = remember { SimPhoneDetector(context) }
+    val phoneValidationRepository = remember { PhoneValidationRepository() }
+    
+    // Function to validate phone number
+    fun validatePhoneNumber(phone: String) {
+        coroutineScope.launch {
+            isValidatingPhone = true
+            phoneValidationResult = null
+            errorMessage = null
+            
+            try {
+                val result = phoneValidationRepository.validatePhoneNumber(phone)
+                result.fold(
+                    onSuccess = { validationResponse ->
+                        phoneValidationResult = validationResponse
+                        if (validationResponse.isRegistered) {
+                            Logger.i("Phone number $phone is registered", "PHONE_VALIDATION")
+                            // Clear any previous error messages when phone is registered
+                            errorMessage = null
+                        } else {
+                            Logger.w("Phone number $phone is not registered: ${validationResponse.message}", "PHONE_VALIDATION")
+                            // Show the API message for unregistered numbers
+                            errorMessage = validationResponse.message
+                        }
+                    },
+                    onFailure = { exception ->
+                        Logger.e("Phone validation failed for $phone", exception, "PHONE_VALIDATION")
+                        errorMessage = "Failed to validate phone number. Please try again."
+                    }
+                )
+            } catch (e: Exception) {
+                Logger.e("Exception during phone validation", e, "PHONE_VALIDATION")
+                errorMessage = "Network error. Please check your connection."
+            } finally {
+                isValidatingPhone = false
+            }
+        }
+    }
+    
+    // Permission launcher for SIM detection
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            // Retry SIM detection after permission granted
+            coroutineScope.launch {
+                try {
+                    val allSims = simDetector.getAllSimInfo()
+                    allDetectedSims = allSims
+                    if (allSims.isNotEmpty()) {
+                        detectedPhoneNumber = allSims.first().phoneNumber
+                        phoneNumber = allSims.first().phoneNumber ?: ""
+                        Logger.i("Auto-detected ${allSims.size} SIM(s) after permission", "SIM_DETECTION")
+                        if (allSims.size > 1) {
+                            showSimSelection = true
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logger.e("Error auto-detecting phone numbers after permission", e, "SIM_DETECTION")
+                }
+            }
+        } else {
+            errorMessage = "Phone number detection requires phone permissions"
+        }
+    }
+    
+    // Auto-detect phone number on first load
+    LaunchedEffect(Unit) {
+        try {
+            if (PermissionHelper.hasSimDetectionPermissions(context)) {
+                val allSims = simDetector.getAllSimInfo()
+                allDetectedSims = allSims
+                if (allSims.isNotEmpty()) {
+                    detectedPhoneNumber = allSims.first().phoneNumber
+                    phoneNumber = allSims.first().phoneNumber ?: ""
+                    Logger.i("Auto-detected ${allSims.size} SIM(s): ${allSims.map { it.phoneNumber }}", "SIM_DETECTION")
+                    if (allSims.size > 1) {
+                        showSimSelection = true
+                    }
+                }
+            } else {
+                Logger.d("SIM detection permissions not available", "SIM_DETECTION")
+            }
+        } catch (e: Exception) {
+            Logger.e("Error auto-detecting phone numbers", e, "SIM_DETECTION")
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -109,29 +211,7 @@ fun SimpleLoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             // API Info Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "🔐 Live API Authentication",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Sign in with your registered phone number",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -150,25 +230,234 @@ fun SimpleLoginScreen(
                         fontWeight = FontWeight.Bold
                     )
                     
-                    // Phone Number Input
-                    OutlinedTextField(
-                        value = phoneNumber,
-                        onValueChange = { phoneNumber = it },
-                        label = { Text("Phone Number") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Phone, contentDescription = "Phone")
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Phone,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        placeholder = { Text("+91 9876543210") }
-                    )
+                    // Phone Number Input with SIM Detection
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = phoneNumber,
+                            onValueChange = { phoneNumber = it },
+                            label = { Text("Phone Number") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Phone, contentDescription = "Phone")
+                            },
+                            trailingIcon = {
+                                if (detectedPhoneNumber != null) {
+                                    IconButton(
+                                        onClick = { 
+                                            phoneNumber = detectedPhoneNumber!!
+                                            showSimDetection = true
+                                        }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Phone,
+                                            contentDescription = "Use SIM number",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Phone,
+                                imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            placeholder = { Text("+91 9876543210") }
+                        )
+                        
+                        // SIM Detection Info
+                        if (allDetectedSims.isNotEmpty()) {
+                            if (allDetectedSims.size == 1) {
+                                // Single SIM detected
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { 
+                                            val selectedNumber = allDetectedSims.first().phoneNumber ?: ""
+                                            phoneNumber = selectedNumber
+                                            validatePhoneNumber(selectedNumber)
+                                        },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Phone,
+                                            contentDescription = "SIM Card",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Detected: ${allDetectedSims.first().phoneNumber}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        if (isValidatingPhone) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "Tap to use",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Multiple SIMs detected
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Phone,
+                                                contentDescription = "SIM Cards",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Multiple SIMs Detected (${allDetectedSims.size})",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                        
+                                        allDetectedSims.forEachIndexed { index, simInfo ->
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable { 
+                                                        val selectedNumber = simInfo.phoneNumber ?: ""
+                                                        phoneNumber = selectedNumber
+                                                        validatePhoneNumber(selectedNumber)
+                                                    },
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (phoneNumber == simInfo.phoneNumber) 
+                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                                    else MaterialTheme.colorScheme.surface
+                                                )
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "SIM ${index + 1}:",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = simInfo.phoneNumber ?: "No number",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Spacer(modifier = Modifier.weight(1f))
+                                                    
+                                                    // Validation status indicator
+                                                    if (isValidatingPhone && phoneNumber == simInfo.phoneNumber) {
+                                                        CircularProgressIndicator(
+                                                            modifier = Modifier.size(16.dp),
+                                                            strokeWidth = 2.dp
+                                                        )
+                                                    } else if (phoneValidationResult != null && phoneNumber == simInfo.phoneNumber) {
+                                                        Icon(
+                                                            imageVector = if (phoneValidationResult!!.isRegistered) 
+                                                                Icons.Default.CheckCircle 
+                                                            else Icons.Default.Warning,
+                                                            contentDescription = "Validation status",
+                                                            modifier = Modifier.size(16.dp),
+                                                            tint = if (phoneValidationResult!!.isRegistered) 
+                                                                Color(0xFF4CAF50) 
+                                                            else Color(0xFFF44336)
+                                                        )
+                                                    }
+                                                    
+                                                    simInfo.carrierName?.let { carrier ->
+                                                        Text(
+                                                            text = carrier,
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // Show SIM detection button if no number detected
+                            OutlinedButton(
+                                onClick = {
+                                    if (PermissionHelper.hasSimDetectionPermissions(context)) {
+                                        coroutineScope.launch {
+                                            try {
+                                                val allSims = simDetector.getAllSimInfo()
+                                                allDetectedSims = allSims
+                                                if (allSims.isNotEmpty()) {
+                                                    detectedPhoneNumber = allSims.first().phoneNumber
+                                                    phoneNumber = allSims.first().phoneNumber ?: ""
+                                                    Logger.i("Manually detected ${allSims.size} SIM(s): ${allSims.map { it.phoneNumber }}", "SIM_DETECTION")
+                                                    if (allSims.size > 1) {
+                                                        showSimSelection = true
+                                                    }
+                                                } else {
+                                                    errorMessage = "No SIM card detected or phone number not available"
+                                                }
+                                            } catch (e: Exception) {
+                                                errorMessage = "Error detecting SIM phone numbers"
+                                                Logger.e("Error detecting SIM phone numbers", e, "SIM_DETECTION")
+                                            }
+                                        }
+                                    } else {
+                                        // Request permissions
+                                        val permissions = PermissionHelper.getSimDetectionPermissions()
+                                        permissionLauncher.launch(permissions)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    Icons.Default.Phone,
+                                    contentDescription = "Detect SIM",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    if (PermissionHelper.hasSimDetectionPermissions(context)) {
+                                        "Detect Phone Number from SIM"
+                                    } else {
+                                        "Grant Permission & Detect Phone Number"
+                                    }
+                                )
+                            }
+                        }
+                    }
                     
                     // Password
                     OutlinedTextField(
@@ -194,6 +483,35 @@ fun SimpleLoginScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+                    
+                    // Validation Status Messages
+                    if (phoneValidationResult != null && phoneValidationResult!!.isRegistered) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Valid",
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "✓ Phone number is registered",
+                                    color = Color(0xFF4CAF50),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
                     
                     // Error Message
                     if (errorMessage != null) {

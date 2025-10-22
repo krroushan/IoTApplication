@@ -58,8 +58,20 @@ class NotificationHelper(private val context: Context) {
         val title = "Motor Status Update"
         val content = buildMotorStatusContent(motorData)
         
+        // Get app icon properly for large icon
+        val appIcon = context.packageManager.getApplicationIcon(context.packageName)
+        val largeIcon = android.graphics.Bitmap.createBitmap(
+            appIcon.intrinsicWidth,
+            appIcon.intrinsicHeight,
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val canvas = android.graphics.Canvas(largeIcon)
+        appIcon.setBounds(0, 0, canvas.width, canvas.height)
+        appIcon.draw(canvas)
+        
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_ic_notification)
+            .setLargeIcon(largeIcon)
             .setContentTitle(title)
             .setContentText(content)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
@@ -83,8 +95,20 @@ class NotificationHelper(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
+        // Get app icon properly for large icon
+        val appIcon = context.packageManager.getApplicationIcon(context.packageName)
+        val largeIcon = android.graphics.Bitmap.createBitmap(
+            appIcon.intrinsicWidth,
+            appIcon.intrinsicHeight,
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val canvas = android.graphics.Canvas(largeIcon)
+        appIcon.setBounds(0, 0, canvas.width, canvas.height)
+        appIcon.draw(canvas)
+        
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_ic_notification)
+            .setLargeIcon(largeIcon)
             .setContentTitle("SMS Received")
             .setContentText("From: $sender")
             .setStyle(NotificationCompat.BigTextStyle().bigText("From: $sender\nMessage: $message"))
@@ -97,8 +121,20 @@ class NotificationHelper(private val context: Context) {
     }
     
     fun showSyncNotification(message: String) {
+        // Get app icon properly for large icon
+        val appIcon = context.packageManager.getApplicationIcon(context.packageName)
+        val largeIcon = android.graphics.Bitmap.createBitmap(
+            appIcon.intrinsicWidth,
+            appIcon.intrinsicHeight,
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val canvas = android.graphics.Canvas(largeIcon)
+        appIcon.setBounds(0, 0, canvas.width, canvas.height)
+        appIcon.draw(canvas)
+        
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_ic_notification)
+            .setLargeIcon(largeIcon)
             .setContentTitle("Data Sync")
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_LOW)

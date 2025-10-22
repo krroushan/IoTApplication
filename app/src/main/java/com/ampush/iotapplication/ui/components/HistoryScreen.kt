@@ -8,11 +8,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ampush.iotapplication.data.db.entities.LogEntity
+import com.ampush.iotapplication.data.manager.DeviceManager
+import com.ampush.iotapplication.data.model.Device
+import com.ampush.iotapplication.network.models.MotorLogEntity
+import com.ampush.iotapplication.repository.DeviceLogsRepository
 import com.ampush.iotapplication.ui.viewmodel.MotorViewModel
+import com.ampush.iotapplication.ui.components.DeviceStatsSummary
+import com.ampush.iotapplication.ui.components.DeviceHistoryItem
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -20,7 +27,17 @@ import java.util.*
 fun HistoryScreen(
     viewModel: MotorViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val deviceManager = remember { DeviceManager(context) }
+    val savedDevices = remember { deviceManager.getSavedDevices() }
     val allLogs by viewModel.getAllLogs().collectAsState(initial = emptyList())
+    
+    // Create tabs - "Local" + device names
+    val tabs = remember(savedDevices) {
+        listOf("Local") + savedDevices.map { it.deviceName }
+    }
+    
+    var selectedTabIndex by remember { mutableStateOf(0) }
     
     Column(
         modifier = Modifier
@@ -28,13 +45,48 @@ fun HistoryScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
-        Text(
-            text = "Motor History",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        // Device Tabs
+        if (tabs.size > 1) {
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                tabs.forEachIndexed { index, tabName ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = {
+                            Text(
+                                text = tabName,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1
+                            )
+                        }
+                    )
+                }
+            }
+        }
         
+        // Content based on selected tab
+        when {
+            selectedTabIndex == 0 -> {
+                // Local tab - show SQLite data (unchanged)
+                LocalHistoryContent(allLogs = allLogs)
+            }
+            selectedTabIndex > 0 && selectedTabIndex <= savedDevices.size -> {
+                // Device tab - show API data for specific device
+                val selectedDevice = savedDevices[selectedTabIndex - 1]
+                DeviceHistoryContent(device = selectedDevice)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalHistoryContent(allLogs: List<LogEntity>) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         // Stats Summary
         if (allLogs.isNotEmpty()) {
             StatsSummary(logs = allLogs)
@@ -47,7 +99,7 @@ fun HistoryScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No history data available",
+                    text = "No local history data available",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -58,6 +110,122 @@ fun HistoryScreen(
             ) {
                 items(allLogs) { log ->
                     HistoryItem(log = log)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeviceHistoryContent(device: Device) {
+    val deviceLogsRepository = remember { DeviceLogsRepository() }
+    var deviceLogs by remember { mutableStateOf<List<MotorLogEntity>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    // Load device logs when component is first composed
+    LaunchedEffect(device.id) {
+        isLoading = true
+        errorMessage = null
+        
+        val result = deviceLogsRepository.getDeviceLogs(deviceId = device.id)
+        result.fold(
+            onSuccess = { logs ->
+                deviceLogs = logs
+                isLoading = false
+            },
+            onFailure = { error ->
+                errorMessage = error.message ?: "Failed to load device logs"
+                isLoading = false
+            }
+        )
+    }
+    
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Device Info Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = device.deviceName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = "SMS: ${device.smsNumber}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                device.description?.let { description ->
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        }
+        
+        // Loading indicator
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+        
+        // Error message
+        errorMessage?.let { error ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Text(
+                    text = error,
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
+        
+        // Device logs
+        if (!isLoading && errorMessage == null) {
+            if (deviceLogs.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No API logs available for ${device.deviceName}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                // Stats Summary for device logs
+                DeviceStatsSummary(logs = deviceLogs)
+                
+                // Device logs list
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(deviceLogs) { log ->
+                        DeviceHistoryItem(log = log)
+                    }
                 }
             }
         }

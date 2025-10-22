@@ -16,18 +16,23 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ampush.iotapplication.data.db.entities.LogEntity
 import com.ampush.iotapplication.data.manager.DeviceManager
+import com.ampush.iotapplication.data.manager.DefaultDeviceManager
 import com.ampush.iotapplication.data.model.Device
 import com.ampush.iotapplication.ui.viewmodel.MotorViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Dashboard(
-    viewModel: MotorViewModel = viewModel()
+    viewModel: MotorViewModel = viewModel(),
+    refreshKey: Int = 0
 ) {
     val context = LocalContext.current
     val deviceManager = remember { DeviceManager(context) }
+    val defaultDeviceManager = remember { DefaultDeviceManager(context) }
     
     val latestLog by viewModel.latestLog.collectAsState()
     val isLoading by viewModel.isLoading.observeAsState(false)
@@ -37,6 +42,34 @@ fun Dashboard(
     var showDeviceDialog by remember { mutableStateOf(false) }
     var pendingCommand by remember { mutableStateOf<String?>(null) }
     val savedDevices = remember { deviceManager.getSavedDevices() }
+    
+    // Refresh default device when refreshKey changes
+    var defaultDevice by remember(refreshKey) { mutableStateOf(defaultDeviceManager.getDefaultDevice()) }
+    
+    // SMS sending state
+    var isWaitingForSmsResponse by remember { mutableStateOf(false) }
+    var lastSmsCommand by remember { mutableStateOf<String?>(null) }
+    
+    // Helper function to send SMS and set waiting state
+    val sendSmsWithWaiting = { device: Device, command: String ->
+        deviceManager.sendSmsCommand(device, command)
+        isWaitingForSmsResponse = true
+        lastSmsCommand = command
+        
+        // Auto-clear waiting state after 30 seconds timeout
+        viewModel.viewModelScope.launch {
+            kotlinx.coroutines.delay(30000)
+            isWaitingForSmsResponse = false
+        }
+    }
+    
+    // Listen for new log updates to clear waiting state
+    LaunchedEffect(latestLog) {
+        if (isWaitingForSmsResponse && latestLog != null) {
+            isWaitingForSmsResponse = false
+            lastSmsCommand = null
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -74,11 +107,36 @@ fun Dashboard(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Motor Controls",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Motor Controls",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    // Default device indicator
+                    defaultDevice?.let { device ->
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Default: ${device.deviceName}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -89,12 +147,18 @@ fun Dashboard(
                             if (savedDevices.isEmpty()) {
                                 viewModel.sendMotorOn() // Fallback to old behavior
                             } else {
-                                pendingCommand = "MOTORON"
-                                showDeviceDialog = true
+                                val currentDefaultDevice = defaultDevice
+                                if (currentDefaultDevice != null) {
+                                    // Use default device
+                                    sendSmsWithWaiting(currentDefaultDevice, "MOTORON")
+                                } else {
+                                    pendingCommand = "MOTORON"
+                                    showDeviceDialog = true
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        enabled = isLoading != true,
+                        enabled = !isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF4CAF50)
                         )
@@ -107,12 +171,18 @@ fun Dashboard(
                             if (savedDevices.isEmpty()) {
                                 viewModel.sendMotorOff() // Fallback to old behavior
                             } else {
-                                pendingCommand = "MOTOROFF"
-                                showDeviceDialog = true
+                                val currentDefaultDevice = defaultDevice
+                                if (currentDefaultDevice != null) {
+                                    // Use default device
+                                    sendSmsWithWaiting(currentDefaultDevice, "MOTOROFF")
+                                } else {
+                                    pendingCommand = "MOTOROFF"
+                                    showDeviceDialog = true
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        enabled = isLoading != true,
+                        enabled = !isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFF44336)
                         )
@@ -126,8 +196,14 @@ fun Dashboard(
                         if (savedDevices.isEmpty()) {
                             viewModel.sendStatusRequest() // Fallback to old behavior
                         } else {
-                            pendingCommand = "STATUS"
-                            showDeviceDialog = true
+                            val currentDefaultDevice = defaultDevice
+                            if (currentDefaultDevice != null) {
+                                // Use default device
+                                sendSmsWithWaiting(currentDefaultDevice, "STATUS")
+                            } else {
+                                pendingCommand = "STATUS"
+                                showDeviceDialog = true
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -152,6 +228,44 @@ fun Dashboard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+                
+                // Show waiting message when SMS command sent
+                if (isWaitingForSmsResponse) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Column {
+                                Text(
+                                    text = "Waiting for SMS response...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                lastSmsCommand?.let { command ->
+                                    Text(
+                                        text = "Command: $command",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 latestLog?.let { log ->
                     StatusItem("Motor", log.motorStatus, getMotorStatusColor(log.motorStatus))
@@ -191,7 +305,7 @@ fun Dashboard(
             devices = savedDevices,
             onDeviceSelected = { device ->
                 pendingCommand?.let { command ->
-                    deviceManager.sendSmsCommand(device, command)
+                    sendSmsWithWaiting(device, command)
                 }
                 showDeviceDialog = false
                 pendingCommand = null
