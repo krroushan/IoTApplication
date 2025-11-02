@@ -83,7 +83,7 @@ fun ReportsScreen(
     var selectedDeviceId by remember { mutableStateOf<Int?>(null) } // null = All Devices
     
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Day", "Month", "Year", "Custom")
+    val tabs = listOf("Day", "Month", "Year") // "Custom" - commented out for now
     
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -138,7 +138,7 @@ fun ReportsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(vertical = 8.dp, horizontal = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -156,12 +156,12 @@ fun ReportsScreen(
                                 text = if (selectedDeviceId == null) "All Devices" else savedDevices.find { it.id == selectedDeviceId }?.deviceName ?: "All Devices",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF31b84f)
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "Select Device",
-                                tint = Color(0xFF31b84f)
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                         
@@ -244,7 +244,7 @@ fun ReportsScreen(
                 0 -> DailyReportContent(viewModel)
                 1 -> MonthlyReportContent(viewModel)
                 2 -> YearlyReportContent(viewModel)
-                3 -> CustomReportContent(viewModel)
+                // 3 -> CustomReportContent(viewModel) // Commented out for now
             }
             
             // Loading Overlay
@@ -349,7 +349,7 @@ fun DateNavigationCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(vertical = 8.dp, horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -407,7 +407,7 @@ fun DailyConsumptionCard(summary: DailyReportSummary) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = "Energy",
-                        tint = Color(0xFF31b84f),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(32.dp)
                     )
                     Text(
@@ -419,7 +419,7 @@ fun DailyConsumptionCard(summary: DailyReportSummary) {
                     text = "${String.format("%.2f", summary.dailyConsumption)} kWh",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF31b84f)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             
@@ -444,7 +444,7 @@ fun DailyConsumptionCard(summary: DailyReportSummary) {
                         text = "₹${String.format("%.2f", summary.totalCost)}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF5c345a)
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 
@@ -462,7 +462,7 @@ fun DailyConsumptionCard(summary: DailyReportSummary) {
                         text = "${summary.totalWater} L",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2196F3)
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -539,76 +539,137 @@ fun HourlyChartCard(hourlyData: List<HourlyData>) {
 @Composable
 fun HourlyAreaChart(hourlyData: List<HourlyData>) {
     val maxEnergy = hourlyData.maxOfOrNull { it.energy } ?: 1f
-    val chartColor = Color(0xFF2196F3)
+    val chartColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val textColor = MaterialTheme.colorScheme.onSurface
     
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-    ) {
-        val width = size.width
-        val height = size.height
-        val spacing = width / (hourlyData.size - 1)
-        
-        // Draw area
-        val path = Path()
-        hourlyData.forEachIndexed { index, data ->
-            val x = index * spacing
-            val y = height - (data.energy / maxEnergy * height)
+    Column {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(vertical = 8.dp)
+        ) {
+            val width = size.width
+            val height = size.height
+            val spacing = width / (hourlyData.size - 1)
             
-            if (index == 0) {
-                path.moveTo(x, height)
-                path.lineTo(x, y)
-            } else {
-                path.lineTo(x, y)
-            }
-        }
-        path.lineTo(width, height)
-        path.close()
-        
-        drawPath(
-            path = path,
-            color = chartColor.copy(alpha = 0.3f)
-        )
-        
-        // Draw line
-        val linePath = Path()
-        hourlyData.forEachIndexed { index, data ->
-            val x = index * spacing
-            val y = height - (data.energy / maxEnergy * height)
-            
-            if (index == 0) {
-                linePath.moveTo(x, y)
-            } else {
-                linePath.lineTo(x, y)
-            }
-        }
-        
-        drawPath(
-            path = linePath,
-            color = chartColor,
-            style = Stroke(width = 4f)
-        )
-        
-        // Draw time labels
-        val paint = android.graphics.Paint().apply {
-            textAlign = android.graphics.Paint.Align.CENTER
-            textSize = 24f
-            color = android.graphics.Color.GRAY
-        }
-        
-        listOf(0, 6, 12, 18, 23).forEach { hour ->
-            val index = hourlyData.indexOfFirst { it.hour.startsWith(String.format("%02d", hour)) }
-            if (index >= 0) {
-                val x = index * spacing
-                drawContext.canvas.nativeCanvas.drawText(
-                    hourlyData[index].hour,
-                    x,
-                    height + 40f,
-                    paint
+            // Draw grid lines
+            for (i in 0..4) {
+                val y = height * (i / 4f)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(width, y),
+                    strokeWidth = 1f
                 )
             }
+            
+            // Draw area with gradient effect
+            val path = Path()
+            hourlyData.forEachIndexed { index, data ->
+                val x = index * spacing
+                val y = height - (data.energy / maxEnergy * height)
+                
+                if (index == 0) {
+                    path.moveTo(x, height)
+                    path.lineTo(x, y)
+                } else {
+                    path.lineTo(x, y)
+                }
+            }
+            path.lineTo(width, height)
+            path.close()
+            
+            // Draw gradient area - use simple gradient with valid bounds
+            if (height > 0) {
+                try {
+                    drawPath(
+                        path = path,
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                chartColor.copy(alpha = 0.4f),
+                                chartColor.copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            startY = 0f.coerceAtLeast(0f),
+                            endY = height.coerceAtMost(size.height)
+                        )
+                    )
+                } catch (e: Exception) {
+                    // Fallback to solid color if gradient fails
+                    drawPath(
+                        path = path,
+                        color = chartColor.copy(alpha = 0.2f)
+                    )
+                }
+            }
+            
+            // Draw line with better styling
+            val linePath = Path()
+            hourlyData.forEachIndexed { index, data ->
+                val x = index * spacing
+                val y = height - (data.energy / maxEnergy * height)
+                
+                if (index == 0) {
+                    linePath.moveTo(x, y)
+                } else {
+                    linePath.lineTo(x, y)
+                }
+            }
+            
+            drawPath(
+                path = linePath,
+                color = chartColor,
+                style = Stroke(width = 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+            
+            // Draw data points
+            hourlyData.forEachIndexed { index, data ->
+                if (data.energy > 0) {
+                    val x = index * spacing
+                    val y = height - (data.energy / maxEnergy * height)
+                    drawCircle(
+                        color = chartColor,
+                        radius = 4.dp.toPx(),
+                        center = Offset(x, y)
+                    )
+                    drawCircle(
+                        color = Color.White,
+                        radius = 2.dp.toPx(),
+                        center = Offset(x, y)
+                    )
+                }
+            }
+            
+            // Draw time labels with better styling
+            val paint = android.graphics.Paint().apply {
+                textAlign = android.graphics.Paint.Align.CENTER
+                textSize = 22f
+                color = android.graphics.Color.valueOf(
+                    textColor.red,
+                    textColor.green,
+                    textColor.blue,
+                    textColor.alpha
+                ).toArgb()
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            }
+            
+            listOf(0, 6, 12, 18, 23).forEach { hour ->
+                val index = hourlyData.indexOfFirst { it.hour.startsWith(String.format("%02d", hour)) }
+                if (index >= 0) {
+                    val x = index * spacing
+                    drawContext.canvas.nativeCanvas.drawText(
+                        hourlyData[index].hour,
+                        x,
+                        height + 25f,
+                        paint
+                    )
+                }
+            }
         }
+        // Add bottom padding for labels
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
@@ -684,7 +745,7 @@ fun MonthNavigationCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(vertical = 8.dp, horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -742,7 +803,7 @@ fun MonthlyProductionCard(summary: MonthlyReportSummary) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = "Energy",
-                        tint = Color(0xFF31b84f),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(32.dp)
                     )
                     Text(
@@ -754,7 +815,7 @@ fun MonthlyProductionCard(summary: MonthlyReportSummary) {
                     text = "${String.format("%.2f", summary.monthlyConsumption)} kWh",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF31b84f)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             
@@ -779,7 +840,7 @@ fun MonthlyProductionCard(summary: MonthlyReportSummary) {
                         text = "₹${String.format("%.2f", summary.totalCost)}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF5c345a)
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 
@@ -797,7 +858,7 @@ fun MonthlyProductionCard(summary: MonthlyReportSummary) {
                         text = "${summary.totalWater} L",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2196F3)
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -874,48 +935,93 @@ fun DailyBarChartCard(dailyData: List<DailyData>) {
 @Composable
 fun DailyBarChart(dailyData: List<DailyData>) {
     val maxEnergy = dailyData.maxOfOrNull { it.energy } ?: 1f
-    val barColor = Color(0xFF2196F3)
+    val barColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val textColor = MaterialTheme.colorScheme.onSurface
     
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-    ) {
-        val width = size.width
-        val height = size.height
-        val barWidth = width / (dailyData.size + 2)
-        val barSpacing = 2f
-        
-        dailyData.forEachIndexed { index, data ->
-            val barHeight = (data.energy / maxEnergy * height)
-            val x = (index + 1) * barWidth
+    Column {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(vertical = 8.dp)
+        ) {
+            val width = size.width
+            val height = size.height
+            val barWidth = width / (dailyData.size + 2)
+            val barSpacing = 4f
             
-            drawRect(
-                color = barColor,
-                topLeft = Offset(x + barSpacing, height - barHeight),
-                size = Size(barWidth - barSpacing * 2, barHeight)
-            )
-        }
-        
-        // Draw day labels (only for specific days)
-        val paint = android.graphics.Paint().apply {
-            textAlign = android.graphics.Paint.Align.CENTER
-            textSize = 20f
-            color = android.graphics.Color.GRAY
-        }
-        
-        listOf(1, 10, 20, dailyData.size).forEach { day ->
-            if (day <= dailyData.size) {
-                val index = day - 1
-                val x = (index + 1) * barWidth + barWidth / 2
-                drawContext.canvas.nativeCanvas.drawText(
-                    day.toString(),
-                    x,
-                    height + 35f,
-                    paint
+            // Draw grid lines
+            for (i in 0..4) {
+                val y = height * (i / 4f)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(width, y),
+                    strokeWidth = 1f
                 )
             }
+            
+            // Draw bars with rounded corners effect
+            dailyData.forEachIndexed { index, data ->
+                val barHeight = (data.energy / maxEnergy * height).coerceAtLeast(2f)
+                val x = (index + 1) * barWidth + barSpacing
+                val barRectWidth = barWidth - barSpacing * 2
+                
+                if (barHeight > 0 && barRectWidth > 0) {
+                    val barTop = height - barHeight
+                    
+                    // Draw bar shadow
+                    if (barHeight > 2f) {
+                        drawRoundRect(
+                            color = barColor.copy(alpha = 0.2f),
+                            topLeft = Offset(x + 2f, barTop + 2f),
+                            size = Size(barRectWidth, barHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    }
+                    
+                    // Draw main bar - use solid color to avoid gradient issues
+                    val actualBarTop = if (barHeight > 2f) barTop else height - 2f
+                    val actualBarHeight = barHeight.coerceAtLeast(2f)
+                    
+                    drawRoundRect(
+                        color = barColor,
+                        topLeft = Offset(x, actualBarTop),
+                        size = Size(barRectWidth, actualBarHeight),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                    )
+                }
+            }
+            
+            // Draw day labels with better styling
+            val paint = android.graphics.Paint().apply {
+                textAlign = android.graphics.Paint.Align.CENTER
+                textSize = 20f
+                color = android.graphics.Color.valueOf(
+                    textColor.red,
+                    textColor.green,
+                    textColor.blue,
+                    textColor.alpha
+                ).toArgb()
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            }
+            
+            listOf(1, 10, 20, dailyData.size).forEach { day ->
+                if (day <= dailyData.size) {
+                    val index = day - 1
+                    val x = (index + 1) * barWidth + barWidth / 2
+                    drawContext.canvas.nativeCanvas.drawText(
+                        day.toString(),
+                        x,
+                        height + 25f,
+                        paint
+                    )
+                }
+            }
         }
+        // Add bottom padding for labels
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
@@ -982,7 +1088,7 @@ fun YearNavigationCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(vertical = 8.dp, horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1040,7 +1146,7 @@ fun AnnualProductionCard(summary: YearlyReportSummary) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = "Energy",
-                        tint = Color(0xFF31b84f),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(32.dp)
                     )
                     Text(
@@ -1052,7 +1158,7 @@ fun AnnualProductionCard(summary: YearlyReportSummary) {
                     text = if (summary.annualConsumption >= 1000) "${summary.annualConsumption/1000} MWh" else "${summary.annualConsumption} kWh",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF31b84f)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             
@@ -1077,7 +1183,7 @@ fun AnnualProductionCard(summary: YearlyReportSummary) {
                         text = "₹${String.format("%.2f", summary.totalCost)}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF5c345a)
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 
@@ -1095,7 +1201,7 @@ fun AnnualProductionCard(summary: YearlyReportSummary) {
                         text = "${summary.totalWater} L",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2196F3)
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -1172,45 +1278,103 @@ fun MonthlyBarChartCard(monthlyData: List<MonthlyData>) {
 @Composable
 fun MonthlyBarChart(monthlyData: List<MonthlyData>) {
     val maxEnergy = monthlyData.maxOfOrNull { it.energy } ?: 1f
-    val barColor = Color(0xFF2196F3)
+    val barColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val inactiveColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-    ) {
-        val width = size.width
-        val height = size.height
-        val barWidth = width / 13
-        val barSpacing = 2f
-        
-        monthlyData.forEachIndexed { index, data ->
-            val barHeight = (data.energy / maxEnergy * height)
-            val x = index * barWidth
+    Column {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(vertical = 8.dp)
+        ) {
+            val width = size.width
+            val height = size.height
+            val barWidth = width / 13
+            val barSpacing = 4f
             
-            drawRect(
-                color = if (data.energy > 0) barColor else Color.Gray.copy(alpha = 0.3f),
-                topLeft = Offset(x + barSpacing, height - barHeight),
-                size = Size(barWidth - barSpacing * 2, barHeight.coerceAtLeast(1f))
-            )
+            // Draw grid lines
+            for (i in 0..4) {
+                val y = height * (i / 4f)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(width, y),
+                    strokeWidth = 1f
+                )
+            }
+            
+            // Draw bars with rounded corners and gradients
+            monthlyData.forEachIndexed { index, data ->
+                val barHeight = (data.energy / maxEnergy * height).coerceAtLeast(2f)
+                val x = index * barWidth + barSpacing
+                val barRectWidth = barWidth - barSpacing * 2
+                val isActive = data.energy > 0
+                val currentBarColor = if (isActive) barColor else inactiveColor
+                
+                if (barHeight > 0 && barRectWidth > 0) {
+                    val barTop = height - barHeight
+                    
+                    if (isActive) {
+                        // Draw bar shadow for active bars
+                        if (barHeight > 2f) {
+                            drawRoundRect(
+                                color = currentBarColor.copy(alpha = 0.2f),
+                                topLeft = Offset(x + 2f, barTop + 2f),
+                                size = Size(barRectWidth, barHeight),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                            )
+                        }
+                        
+                        // Draw main bar - use solid color to avoid gradient issues
+                        val actualBarTop = if (barHeight > 2f) barTop else height - 2f
+                        val actualBarHeight = barHeight.coerceAtLeast(2f)
+                        
+                        drawRoundRect(
+                            color = currentBarColor,
+                            topLeft = Offset(x, actualBarTop),
+                            size = Size(barRectWidth, actualBarHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    } else {
+                        // Draw inactive bar
+                        drawRoundRect(
+                            color = currentBarColor,
+                            topLeft = Offset(x, barTop),
+                            size = Size(barRectWidth, barHeight.coerceAtLeast(2f)),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    }
+                }
+            }
+            
+            // Draw month labels with better styling
+            val paint = android.graphics.Paint().apply {
+                textAlign = android.graphics.Paint.Align.CENTER
+                textSize = 18f
+                color = android.graphics.Color.valueOf(
+                    textColor.red,
+                    textColor.green,
+                    textColor.blue,
+                    textColor.alpha
+                ).toArgb()
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            }
+            
+            monthlyData.forEachIndexed { index, data ->
+                val x = index * barWidth + barWidth / 2
+                drawContext.canvas.nativeCanvas.drawText(
+                    data.month.toString(),
+                    x,
+                    height + 25f,
+                    paint
+                )
+            }
         }
-        
-        // Draw month labels
-        val paint = android.graphics.Paint().apply {
-            textAlign = android.graphics.Paint.Align.CENTER
-            textSize = 18f
-            color = android.graphics.Color.GRAY
-        }
-        
-        monthlyData.forEachIndexed { index, data ->
-            val x = index * barWidth + barWidth / 2
-            drawContext.canvas.nativeCanvas.drawText(
-                data.month.toString(),
-                x,
-                height + 30f,
-                paint
-            )
-        }
+        // Add bottom padding for labels
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
@@ -1439,7 +1603,7 @@ fun CustomReportSummaryCard(summary: CustomReportSummary, dateRange: String) {
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = "Energy",
-                    tint = Color(0xFF31b84f),
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
                 )
                 Text(
@@ -1450,7 +1614,7 @@ fun CustomReportSummaryCard(summary: CustomReportSummary, dateRange: String) {
                     text = "${String.format("%.2f", summary.totalConsumption)} kWh",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF31b84f)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             
@@ -1475,7 +1639,7 @@ fun CustomReportSummaryCard(summary: CustomReportSummary, dateRange: String) {
                         text = "₹${String.format("%.2f", summary.totalCost)}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF5c345a)
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 
@@ -1493,7 +1657,7 @@ fun CustomReportSummaryCard(summary: CustomReportSummary, dateRange: String) {
                         text = "${summary.totalWater} L",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2196F3)
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -1587,71 +1751,129 @@ fun CustomRangeChartCard(data: List<DailyData>) {
 @Composable
 fun CustomRangeBarChart(data: List<DailyData>) {
     val maxEnergy = data.maxOfOrNull { it.energy } ?: 1f
-    val barColor = Color(0xFF2196F3)
+    val barColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val inactiveColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-    ) {
-        val width = size.width
-        val height = size.height
-        val barWidth = if (data.size > 0) width / (data.size + 2) else 20f
-        val barSpacing = 2f
-        
-        data.forEachIndexed { index, dayData ->
-            val barHeight = (dayData.energy / maxEnergy * height)
-            val x = (index + 1) * barWidth
+    Column {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .padding(vertical = 8.dp)
+        ) {
+            val width = size.width
+            val height = size.height
+            val barWidth = if (data.size > 0) width / (data.size + 2) else 20f
+            val barSpacing = 4f
             
-            drawRect(
-                color = if (dayData.energy > 0) barColor else Color.Gray.copy(alpha = 0.3f),
-                topLeft = Offset(x + barSpacing, height - barHeight),
-                size = Size(barWidth - barSpacing * 2, barHeight.coerceAtLeast(1f))
-            )
-        }
-        
-        // Draw labels for first, middle, and last days
-        val paint = android.graphics.Paint().apply {
-            textAlign = android.graphics.Paint.Align.CENTER
-            textSize = 18f
-            color = android.graphics.Color.GRAY
-        }
-        
-        if (data.isNotEmpty()) {
-            val firstDay = data.first().day
-            val lastDay = data.last().day
-            val middleIndex = data.size / 2
-            val middleDay = if (middleIndex < data.size) data[middleIndex].day else 0
-            
-            // First day
-            val x1 = barWidth + barWidth / 2
-            drawContext.canvas.nativeCanvas.drawText(
-                firstDay.toString(),
-                x1,
-                height + 30f,
-                paint
-            )
-            
-            // Middle day
-            if (data.size > 2) {
-                val x2 = (middleIndex + 1) * barWidth + barWidth / 2
-                drawContext.canvas.nativeCanvas.drawText(
-                    middleDay.toString(),
-                    x2,
-                    height + 30f,
-                    paint
+            // Draw grid lines
+            for (i in 0..4) {
+                val y = height * (i / 4f)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(width, y),
+                    strokeWidth = 1f
                 )
             }
             
-            // Last day
-            val x3 = data.size * barWidth + barWidth / 2
-            drawContext.canvas.nativeCanvas.drawText(
-                lastDay.toString(),
-                x3,
-                height + 30f,
-                paint
-            )
+            // Draw bars with rounded corners
+            data.forEachIndexed { index, dayData ->
+                val barHeight = (dayData.energy / maxEnergy * height).coerceAtLeast(2f)
+                val x = (index + 1) * barWidth + barSpacing
+                val barRectWidth = barWidth - barSpacing * 2
+                val isActive = dayData.energy > 0
+                val currentBarColor = if (isActive) barColor else inactiveColor
+                
+                if (barHeight > 0 && barRectWidth > 0) {
+                    val barTop = height - barHeight
+                    
+                    if (isActive) {
+                        // Draw bar shadow
+                        if (barHeight > 2f) {
+                            drawRoundRect(
+                                color = currentBarColor.copy(alpha = 0.2f),
+                                topLeft = Offset(x + 2f, barTop + 2f),
+                                size = Size(barRectWidth, barHeight),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                            )
+                        }
+                        
+                        // Draw main bar - use solid color to avoid gradient issues
+                        val actualBarTop = if (barHeight > 2f) barTop else height - 2f
+                        val actualBarHeight = barHeight.coerceAtLeast(2f)
+                        
+                        drawRoundRect(
+                            color = currentBarColor,
+                            topLeft = Offset(x, actualBarTop),
+                            size = Size(barRectWidth, actualBarHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    } else {
+                        // Draw inactive bar
+                        drawRoundRect(
+                            color = currentBarColor,
+                            topLeft = Offset(x, barTop),
+                            size = Size(barRectWidth, barHeight.coerceAtLeast(2f)),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    }
+                }
+            }
+            
+            // Draw labels for first, middle, and last days with better styling
+            val paint = android.graphics.Paint().apply {
+                textAlign = android.graphics.Paint.Align.CENTER
+                textSize = 18f
+                color = android.graphics.Color.valueOf(
+                    textColor.red,
+                    textColor.green,
+                    textColor.blue,
+                    textColor.alpha
+                ).toArgb()
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            }
+            
+            if (data.isNotEmpty()) {
+                val firstDay = data.first().day
+                val lastDay = data.last().day
+                val middleIndex = data.size / 2
+                val middleDay = if (middleIndex < data.size) data[middleIndex].day else 0
+                
+                // First day
+                val x1 = barWidth + barWidth / 2
+                drawContext.canvas.nativeCanvas.drawText(
+                    firstDay.toString(),
+                    x1,
+                    height + 25f,
+                    paint
+                )
+                
+                // Middle day
+                if (data.size > 2) {
+                    val x2 = (middleIndex + 1) * barWidth + barWidth / 2
+                    drawContext.canvas.nativeCanvas.drawText(
+                        middleDay.toString(),
+                        x2,
+                        height + 25f,
+                        paint
+                    )
+                }
+                
+                // Last day
+                val x3 = data.size * barWidth + barWidth / 2
+                drawContext.canvas.nativeCanvas.drawText(
+                    lastDay.toString(),
+                    x3,
+                    height + 25f,
+                    paint
+                )
+            }
         }
+        // Add bottom padding for labels
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
@@ -1717,7 +1939,7 @@ fun DeviceBreakdownItem(device: DeviceWiseBreakdown) {
                     text = "${String.format("%.2f", device.energy)} kWh",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF31b84f)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             Column(
@@ -1728,12 +1950,12 @@ fun DeviceBreakdownItem(device: DeviceWiseBreakdown) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = "₹${String.format("%.2f", device.cost)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF5c345a)
-                )
+                    Text(
+                        text = "₹${String.format("%.2f", device.cost)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
             }
         }
         
@@ -1796,7 +2018,7 @@ fun FlexibleStatisticsSection() {
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFF3E0)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Row(
@@ -1806,9 +2028,9 @@ fun FlexibleStatisticsSection() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Warning,
+                imageVector = Icons.Default.Info,
                 contentDescription = "Info",
-                tint = Color(0xFFFF9800),
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -1816,12 +2038,14 @@ fun FlexibleStatisticsSection() {
                 Text(
                     text = "Flexible Statistics",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Customize the time period to flexibly match monthly electricity bill data!",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

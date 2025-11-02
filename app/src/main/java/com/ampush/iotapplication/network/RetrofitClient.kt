@@ -17,8 +17,9 @@ object RetrofitClient {
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS) // Increased for yearly reports (processes 12 months)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true) // Retry on connection failures
         .build()
     
     private val retrofit = Retrofit.Builder()
