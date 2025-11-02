@@ -71,6 +71,12 @@ class SmsReceiver : BroadcastReceiver() {
                     
                     Log.d("SmsReceiver", "Parsed and saved motor data: $motorData")
                     
+                    // Broadcast that new data is available
+                    val intent = Intent("com.ampush.iotapplication.NEW_MOTOR_DATA")
+                    intent.putExtra("motorStatus", motorData.motorStatus)
+                    intent.putExtra("timestamp", motorData.timestamp.time)
+                    context.sendBroadcast(intent)
+                    
                     // Show notification
                     val notificationHelper = NotificationHelper(context)
                     notificationHelper.showMotorStatusNotification(motorData)

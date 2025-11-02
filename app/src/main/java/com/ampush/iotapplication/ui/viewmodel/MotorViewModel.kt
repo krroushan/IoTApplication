@@ -39,6 +39,9 @@ class MotorViewModel(application: Application) : AndroidViewModel(application) {
         
         // Load latest log
         loadLatestLog()
+        
+        // Observe database changes for real-time updates
+        observeDatabaseChanges()
     }
     
     // SMS Commands
@@ -120,6 +123,26 @@ class MotorViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    private fun observeDatabaseChanges() {
+        viewModelScope.launch {
+            try {
+                // Observe all logs and get the latest one
+                repository.getAllLogs().collect { logs ->
+                    if (logs.isNotEmpty()) {
+                        val latest = logs.first() // Already sorted by timestamp DESC
+                        if (_latestLog.value?.id != latest.id) {
+                            Logger.d("New log detected: ${latest.motorStatus} at ${latest.timestamp}", "VIEWMODEL")
+                            _latestLog.value = latest
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Logger.e("Error observing database changes", e, "VIEWMODEL")
+                _errorMessage.value = "Failed to observe database changes: ${e.message}"
+            }
+        }
+    }
+    
     // Cleanup
     fun cleanupOldLogs() {
         viewModelScope.launch {
@@ -133,5 +156,11 @@ class MotorViewModel(application: Application) : AndroidViewModel(application) {
     
     fun clearError() {
         _errorMessage.value = null
+    }
+    
+    // Manually refresh latest log (useful when we know new data is available)
+    fun refreshLatestLog() {
+        Logger.d("Manually refreshing latest log", "VIEWMODEL")
+        loadLatestLog()
     }
 }

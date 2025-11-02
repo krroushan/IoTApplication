@@ -10,14 +10,14 @@ sealed class NavigationItem(
     val icon: ImageVector
 ) {
     object Dashboard : NavigationItem("dashboard", "Dashboard", Icons.Default.Home)
-    object Analytics : NavigationItem("analytics", "Analytics", Icons.Default.Info)
+    object Reports : NavigationItem("reports", "Reports", Icons.Default.Search)
     object History : NavigationItem("history", "History", Icons.Default.List)
     object Profile : NavigationItem("profile", "Profile", Icons.Default.Person)
 }
 
 val navigationItems = listOf(
     NavigationItem.Dashboard,
-    NavigationItem.Analytics,
+    NavigationItem.Reports,
     NavigationItem.History,
     NavigationItem.Profile
 )

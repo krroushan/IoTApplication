@@ -18,11 +18,18 @@ import com.ampush.iotapplication.data.db.entities.LogEntity
 import com.ampush.iotapplication.data.manager.DeviceManager
 import com.ampush.iotapplication.data.manager.DefaultDeviceManager
 import com.ampush.iotapplication.data.model.Device
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import com.ampush.iotapplication.ui.viewmodel.MotorViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.ampush.iotapplication.utils.Logger
+import com.ampush.iotapplication.utils.SmsDefaultChecker
+import com.ampush.iotapplication.utils.SessionManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +40,8 @@ fun Dashboard(
     val context = LocalContext.current
     val deviceManager = remember { DeviceManager(context) }
     val defaultDeviceManager = remember { DefaultDeviceManager(context) }
+    val sessionManager = remember { SessionManager(context) }
+    val smsDefaultChecker = remember { SmsDefaultChecker(context) }
     
     val latestLog by viewModel.latestLog.collectAsState()
     val isLoading by viewModel.isLoading.observeAsState(false)
@@ -49,6 +58,10 @@ fun Dashboard(
     // SMS sending state
     var isWaitingForSmsResponse by remember { mutableStateOf(false) }
     var lastSmsCommand by remember { mutableStateOf<String?>(null) }
+    
+    // SMS default check state
+    var showSmsDefaultAlert by remember { mutableStateOf(false) }
+    var smsDefaultInfo by remember { mutableStateOf<com.ampush.iotapplication.utils.SMSDefaultInfo?>(null) }
     
     // Helper function to send SMS and set waiting state
     val sendSmsWithWaiting = { device: Device, command: String ->
@@ -68,6 +81,56 @@ fun Dashboard(
         if (isWaitingForSmsResponse && latestLog != null) {
             isWaitingForSmsResponse = false
             lastSmsCommand = null
+        }
+    }
+    
+    // Check SMS default status when Dashboard loads
+    LaunchedEffect(Unit) {
+        try {
+            val loggedInPhone = sessionManager.getUserPhone()
+            if (loggedInPhone != null) {
+                Logger.d("Checking SMS default status for: $loggedInPhone", "DASHBOARD")
+                val info = smsDefaultChecker.getSmsDefaultInfo(loggedInPhone)
+                smsDefaultInfo = info
+                
+                if (!info.isDefault) {
+                    Logger.w("User's number is NOT default for SMS: ${info.message}", "DASHBOARD")
+                    showSmsDefaultAlert = true
+                } else {
+                    Logger.i("User's number is default for SMS", "DASHBOARD")
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e("Error checking SMS default status", e, "DASHBOARD")
+        }
+    }
+    
+    // Listen for new motor data broadcasts
+    DisposableEffect(Unit) {
+        val broadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.ampush.iotapplication.NEW_MOTOR_DATA") {
+                    Logger.d("Received new motor data broadcast", "DASHBOARD")
+                    // Refresh the ViewModel to get latest data
+                    viewModel.refreshLatestLog()
+                }
+            }
+        }
+        
+        val filter = IntentFilter("com.ampush.iotapplication.NEW_MOTOR_DATA")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(broadcastReceiver, filter)
+        }
+        
+        // Cleanup on dispose
+        onDispose {
+            try {
+                context.unregisterReceiver(broadcastReceiver)
+            } catch (e: Exception) {
+                // Receiver might not be registered
+            }
         }
     }
     
@@ -313,6 +376,64 @@ fun Dashboard(
             onDismiss = {
                 showDeviceDialog = false
                 pendingCommand = null
+            }
+        )
+    }
+    
+    // SMS Default Alert Dialog
+    if (showSmsDefaultAlert && smsDefaultInfo != null) {
+        AlertDialog(
+            onDismissRequest = { showSmsDefaultAlert = false },
+            title = {
+                Text(
+                    text = "SMS Default Setting",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Your logged-in number (${smsDefaultInfo!!.loggedInNumber}) is not set as the default SIM for SMS sending.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Text(
+                        text = "Current default SMS number: ${smsDefaultInfo!!.defaultSmsNumber ?: "Unknown"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Text(
+                        text = "To ensure SMS commands are sent correctly, please set your number as the default SIM for SMS in your device settings.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showSmsDefaultAlert = false }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { 
+                        showSmsDefaultAlert = false
+                        // Optionally open device settings
+                        try {
+                            val intent = android.content.Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Logger.e("Could not open settings", e, "DASHBOARD")
+                        }
+                    }
+                ) {
+                    Text("Open Settings")
+                }
             }
         )
     }

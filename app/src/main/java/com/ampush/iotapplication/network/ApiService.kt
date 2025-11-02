@@ -59,7 +59,43 @@ interface ApiService {
     @GET("logs/unsynced/count")
     suspend fun getUnsyncedLogsCount(): Response<UnsyncedCountResponse>
     
-    // Reports API Endpoints
+    // Motor Consumption Reports API Endpoints
+    @GET("reports/daily")
+    suspend fun getDailyConsumptionReport(
+        @Query("date") date: String? = null,
+        @Query("device_id") deviceId: Int? = null,
+        @Query("user_id") userId: Int? = null,
+        @Query("phone") phone: String? = null
+    ): Response<DailyReportResponse>
+    
+    @GET("reports/monthly")
+    suspend fun getMonthlyConsumptionReport(
+        @Query("month") month: Int? = null,
+        @Query("year") year: Int? = null,
+        @Query("device_id") deviceId: Int? = null,
+        @Query("user_id") userId: Int? = null,
+        @Query("phone") phone: String? = null
+    ): Response<MonthlyReportResponse>
+    
+    @GET("reports/yearly")
+    suspend fun getYearlyConsumptionReport(
+        @Query("year") year: Int? = null,
+        @Query("device_id") deviceId: Int? = null,
+        @Query("user_id") userId: Int? = null,
+        @Query("phone") phone: String? = null
+    ): Response<YearlyReportResponse>
+    
+    @GET("reports/custom")
+    suspend fun getCustomConsumptionReport(
+        @Query("start_date") startDate: String,
+        @Query("end_date") endDate: String,
+        @Query("device_id") deviceId: Int? = null,
+        @Query("user_id") userId: Int? = null,
+        @Query("phone") phone: String? = null,
+        @Query("group_by") groupBy: String? = "day"
+    ): Response<CustomReportResponse>
+    
+    // Legacy Reports API Endpoints (kept for backward compatibility)
     @GET("reports/daily")
     suspend fun getDailyReport(
         @Query("date") date: Long,

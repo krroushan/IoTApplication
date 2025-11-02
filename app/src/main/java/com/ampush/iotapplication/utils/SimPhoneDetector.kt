@@ -227,4 +227,78 @@ class SimPhoneDetector(private val context: Context) {
     fun getRequiredPermissions(): Array<String> {
         return PermissionHelper.getSimDetectionPermissions()
     }
+    
+    /**
+     * Check if a phone number is the default SIM for SMS sending on the device
+     */
+    fun isPhoneNumberDefaultForSms(phoneNumber: String): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+                val activeSubscriptions = subscriptionManager.activeSubscriptionInfoList
+                
+                if (activeSubscriptions != null && activeSubscriptions.isNotEmpty()) {
+                    // Get the default SMS subscription ID (using reflection for API compatibility)
+                    val defaultSmsSubscriptionId = try {
+                        val method = SubscriptionManager::class.java.getMethod("getDefaultSmsSubscriptionId")
+                        method.invoke(subscriptionManager) as Int
+                    } catch (e: Exception) {
+                        -1
+                    }
+                    
+                    // Find the subscription with matching phone number
+                    val matchingSubscription = activeSubscriptions.find { subscriptionInfo ->
+                        val simPhoneNumber = PhoneNumberNormalizer.normalizePhoneNumber(subscriptionInfo.number ?: "")
+                        simPhoneNumber == PhoneNumberNormalizer.normalizePhoneNumber(phoneNumber)
+                    }
+                    
+                    // Check if this subscription is the default for SMS
+                    matchingSubscription?.subscriptionId == defaultSmsSubscriptionId
+                } else {
+                    // Fallback: if only one SIM, it's considered default
+                    val allSims = getSimPhoneNumbers()
+                    allSims.size == 1 && allSims.firstOrNull()?.phoneNumber == phoneNumber
+                }
+            } else {
+                // For older Android versions, assume first SIM is default
+                val allSims = getSimPhoneNumbers()
+                allSims.firstOrNull()?.phoneNumber == phoneNumber
+            }
+        } catch (e: Exception) {
+            Logger.e("Error checking default SMS SIM", e, TAG)
+            false
+        }
+    }
+    
+    /**
+     * Get the default SMS SIM phone number
+     */
+    fun getDefaultSmsSimNumber(): String? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+                val activeSubscriptions = subscriptionManager.activeSubscriptionInfoList
+                
+                if (activeSubscriptions != null && activeSubscriptions.isNotEmpty()) {
+                    val defaultSmsSubscriptionId = try {
+                        val method = SubscriptionManager::class.java.getMethod("getDefaultSmsSubscriptionId")
+                        method.invoke(subscriptionManager) as Int
+                    } catch (e: Exception) {
+                        -1
+                    }
+                    val defaultSubscription = activeSubscriptions.find { it.subscriptionId == defaultSmsSubscriptionId }
+                    defaultSubscription?.number?.let { PhoneNumberNormalizer.normalizePhoneNumber(it) }
+                } else {
+                    // Fallback to first SIM
+                    getSimPhoneNumbers().firstOrNull()?.phoneNumber
+                }
+            } else {
+                // For older Android versions
+                getSimPhoneNumbers().firstOrNull()?.phoneNumber
+            }
+        } catch (e: Exception) {
+            Logger.e("Error getting default SMS SIM", e, TAG)
+            getSimPhoneNumbers().firstOrNull()?.phoneNumber
+        }
+    }
 }

@@ -41,7 +41,7 @@ fun MainScreen() {
                     Text(
                         text = when (currentRoute) {
                             NavigationItem.Dashboard.route -> "Ampush"
-                            NavigationItem.Analytics.route -> "Analytics"
+                            NavigationItem.Reports.route -> "Reports"
                             NavigationItem.History.route -> "Motor History"
                             NavigationItem.Profile.route -> "Profile"
                             else -> "IoT Control"
@@ -115,8 +115,8 @@ fun MainScreen() {
             composable(NavigationItem.Dashboard.route) {
                 Dashboard(refreshKey = defaultDeviceRefreshTrigger)
             }
-            composable(NavigationItem.Analytics.route) {
-                AnalyticsScreen()
+            composable(NavigationItem.Reports.route) {
+                ReportsScreen()
             }
             composable(NavigationItem.History.route) {
                 HistoryScreen()
