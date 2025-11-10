@@ -9,6 +9,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ampush.iotapplication.network.models.MotorLogEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun DeviceStatsSummary(logs: List<MotorLogEntity>) {
@@ -93,7 +96,7 @@ fun DeviceHistoryItem(log: MotorLogEntity) {
             
             // API timestamp
             Text(
-                text = log.timestamp,
+                text = formatMotorLogTimestamp(log.timestamp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -181,6 +184,22 @@ fun DeviceHistoryItem(log: MotorLogEntity) {
             }
         }
     }
+}
+
+private fun formatMotorLogTimestamp(rawTimestamp: String): String {
+    if (rawTimestamp.isBlank()) {
+        return "-"
+    }
+
+    val timestamp = rawTimestamp.toLongOrNull()
+    if (timestamp != null) {
+        val isMillis = rawTimestamp.length > 10
+        val millis = if (isMillis) timestamp else timestamp * 1000
+        val formatter = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault())
+        return formatter.format(Date(millis))
+    }
+
+    return rawTimestamp
 }
 
 @Composable

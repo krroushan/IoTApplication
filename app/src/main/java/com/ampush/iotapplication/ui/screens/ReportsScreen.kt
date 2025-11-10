@@ -430,40 +430,72 @@ fun DailyConsumptionCard(summary: DailyReportSummary) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Electricity Cost
+                // Electricity Cost - Green bar
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = "Electricity Bill",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "₹${String.format("%.2f", summary.totalCost)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(24.dp)
+                                .background(
+                                    color = Color(0xFF31b84f),
+                                    shape = RoundedCornerShape(2.dp)
+                                )
+                        )
+                        Column {
+                            Text(
+                                text = "Electricity Bill",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "₹${String.format("%.2f", summary.totalCost)}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF31b84f)
+                            )
+                        }
+                    }
                 }
                 
-                // Water Pumped
+                // Water Pumped - Blue bar
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = "Water Pumped",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${summary.totalWater} L",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(24.dp)
+                                .background(
+                                    color = Color(0xFF2196F3),
+                                    shape = RoundedCornerShape(2.dp)
+                                )
+                        )
+                        Column {
+                            Text(
+                                text = "Water Pumped",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${summary.totalWater} L",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2196F3)
+                            )
+                        }
+                    }
                 }
             }
             
@@ -544,26 +576,78 @@ fun HourlyAreaChart(hourlyData: List<HourlyData>) {
     val textColor = MaterialTheme.colorScheme.onSurface
     
     Column {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .padding(vertical = 8.dp)
-        ) {
-            val width = size.width
-            val height = size.height
-            val spacing = width / (hourlyData.size - 1)
-            
-            // Draw grid lines
-            for (i in 0..4) {
-                val y = height * (i / 4f)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(0f, y),
-                    end = Offset(width, y),
-                    strokeWidth = 1f
-                )
+        Row {
+            // Y-axis labels
+            Canvas(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val height = size.height
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    textSize = 16f
+                    color = android.graphics.Color.valueOf(
+                        textColor.red,
+                        textColor.green,
+                        textColor.blue,
+                        textColor.alpha
+                    ).toArgb()
+                }
+                
+                // Draw Y-axis labels (5 values: max to 0)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    val value = maxEnergy * (1f - i / 4f)
+                    val label = if (value >= 1f) String.format("%.1f", value) else String.format("%.2f", value)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        size.width - 8f,
+                        y + 5f,
+                        paint
+                    )
+                }
             }
+            
+            // Chart
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp, horizontal = 2.dp)
+            ) {
+                val width = size.width
+                val height = size.height
+                val spacing = width / (hourlyData.size - 1)
+                
+                // Draw grid lines (horizontal)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(0f, y),
+                        end = Offset(width, y),
+                        strokeWidth = 1f
+                    )
+                }
+                
+                // Draw Y-axis line (left axis)
+                val axisColor = gridColor.copy(alpha = 0.5f)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, 0f),
+                    end = Offset(0f, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw X-axis line (bottom axis)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, height),
+                    end = Offset(width, height),
+                    strokeWidth = 2f
+                )
             
             // Draw area with gradient effect
             val path = Path()
@@ -666,6 +750,7 @@ fun HourlyAreaChart(hourlyData: List<HourlyData>) {
                         paint
                     )
                 }
+            }
             }
         }
         // Add bottom padding for labels
@@ -935,93 +1020,235 @@ fun DailyBarChartCard(dailyData: List<DailyData>) {
 @Composable
 fun DailyBarChart(dailyData: List<DailyData>) {
     val maxEnergy = dailyData.maxOfOrNull { it.energy } ?: 1f
-    val barColor = MaterialTheme.colorScheme.primary
+    val maxWater = dailyData.maxOfOrNull { it.water.toFloat() } ?: 1f
+    
+    val energyColor = Color(0xFF31b84f) // Green for electricity
+    val waterColor = Color(0xFF2196F3) // Blue for water
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
     val textColor = MaterialTheme.colorScheme.onSurface
     
     Column {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .padding(vertical = 8.dp)
-        ) {
-            val width = size.width
-            val height = size.height
-            val barWidth = width / (dailyData.size + 2)
-            val barSpacing = 4f
-            
-            // Draw grid lines
-            for (i in 0..4) {
-                val y = height * (i / 4f)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(0f, y),
-                    end = Offset(width, y),
-                    strokeWidth = 1f
-                )
-            }
-            
-            // Draw bars with rounded corners effect
-            dailyData.forEachIndexed { index, data ->
-                val barHeight = (data.energy / maxEnergy * height).coerceAtLeast(2f)
-                val x = (index + 1) * barWidth + barSpacing
-                val barRectWidth = barWidth - barSpacing * 2
+        Row {
+            // Left Y-axis labels (Water - Blue)
+            Canvas(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val height = size.height
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    textSize = 14f
+                    color = android.graphics.Color.valueOf(
+                        waterColor.red,
+                        waterColor.green,
+                        waterColor.blue,
+                        waterColor.alpha
+                    ).toArgb()
+                }
                 
-                if (barHeight > 0 && barRectWidth > 0) {
-                    val barTop = height - barHeight
-                    
-                    // Draw bar shadow
-                    if (barHeight > 2f) {
-                        drawRoundRect(
-                            color = barColor.copy(alpha = 0.2f),
-                            topLeft = Offset(x + 2f, barTop + 2f),
-                            size = Size(barRectWidth, barHeight),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
-                        )
-                    }
-                    
-                    // Draw main bar - use solid color to avoid gradient issues
-                    val actualBarTop = if (barHeight > 2f) barTop else height - 2f
-                    val actualBarHeight = barHeight.coerceAtLeast(2f)
-                    
-                    drawRoundRect(
-                        color = barColor,
-                        topLeft = Offset(x, actualBarTop),
-                        size = Size(barRectWidth, actualBarHeight),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                // Draw Water Y-axis labels (5 values: max to 0)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    val value = maxWater * (1f - i / 4f)
+                    val label = if (value >= 1f) String.format("%.0f", value) else String.format("%.2f", value)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        size.width - 8f,
+                        y + 5f,
+                        paint
                     )
                 }
             }
             
-            // Draw day labels with better styling
-            val paint = android.graphics.Paint().apply {
-                textAlign = android.graphics.Paint.Align.CENTER
-                textSize = 20f
-                color = android.graphics.Color.valueOf(
-                    textColor.red,
-                    textColor.green,
-                    textColor.blue,
-                    textColor.alpha
-                ).toArgb()
-                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            // Chart with dual bars and dual Y-axes
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp, horizontal = 2.dp)
+            ) {
+                val width = size.width
+                val height = size.height
+                val barWidth = width / (dailyData.size + 2)
+                val singleBarWidth = (barWidth - 8f) / 2f // Each bar is half width with spacing
+                val barSpacing = 2f
+                
+                // Draw grid lines (horizontal)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(0f, y),
+                        end = Offset(width, y),
+                        strokeWidth = 1f
+                    )
+                }
+                
+                // Draw Y-axis line (left axis)
+                val axisColor = gridColor.copy(alpha = 0.5f)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, 0f),
+                    end = Offset(0f, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw Y-axis line (right axis for energy)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(width, 0f),
+                    end = Offset(width, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw X-axis line (bottom axis)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, height),
+                    end = Offset(width, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw dual bars: Water (blue) and Energy (green) with separate scales
+                dailyData.forEachIndexed { index, data ->
+                    val baseX = (index + 1) * barWidth
+                    
+                    // Calculate bar heights using their respective max values
+                    val energyHeight = (data.energy / maxEnergy * height).coerceAtLeast(2f)
+                    val waterHeight = (data.water.toFloat() / maxWater * height).coerceAtLeast(2f)
+                    
+                    // Draw Water bar (Blue) - left side, scaled to water max
+                    if (waterHeight > 0 && singleBarWidth > 0) {
+                        val waterX = baseX + barSpacing
+                        val waterTop = height - waterHeight
+                        
+                        drawRoundRect(
+                            color = waterColor,
+                            topLeft = Offset(waterX, waterTop),
+                            size = Size(singleBarWidth, waterHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    }
+                    
+                    // Draw Energy bar (Green) - right side, scaled to energy max
+                    if (energyHeight > 0 && singleBarWidth > 0) {
+                        val energyX = baseX + singleBarWidth + barSpacing * 2
+                        val energyTop = height - energyHeight
+                        
+                        drawRoundRect(
+                            color = energyColor,
+                            topLeft = Offset(energyX, energyTop),
+                            size = Size(singleBarWidth, energyHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    }
+                }
+                
+                
+                // Draw day labels with better styling
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = 18f
+                    color = android.graphics.Color.valueOf(
+                        textColor.red,
+                        textColor.green,
+                        textColor.blue,
+                        textColor.alpha
+                    ).toArgb()
+                    typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                }
+                
+                listOf(1, 10, 20, dailyData.size).forEach { day ->
+                    if (day <= dailyData.size) {
+                        val index = day - 1
+                        val x = (index + 1) * barWidth + barWidth / 2
+                        drawContext.canvas.nativeCanvas.drawText(
+                            day.toString(),
+                            x,
+                            height + 25f,
+                            paint
+                        )
+                    }
+                }
             }
             
-            listOf(1, 10, 20, dailyData.size).forEach { day ->
-                if (day <= dailyData.size) {
-                    val index = day - 1
-                    val x = (index + 1) * barWidth + barWidth / 2
+            // Right Y-axis labels (Energy - Green)
+            Canvas(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val height = size.height
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.LEFT
+                    textSize = 14f
+                    color = android.graphics.Color.valueOf(
+                        energyColor.red,
+                        energyColor.green,
+                        energyColor.blue,
+                        energyColor.alpha
+                    ).toArgb()
+                }
+                
+                // Draw Energy Y-axis labels on the right (5 values: max to 0)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    val value = maxEnergy * (1f - i / 4f)
+                    val label = if (value >= 1f) String.format("%.2f", value) else String.format("%.3f", value)
                     drawContext.canvas.nativeCanvas.drawText(
-                        day.toString(),
-                        x,
-                        height + 25f,
+                        label,
+                        8f,
+                        y + 5f,
                         paint
                     )
                 }
             }
         }
+        
+        // Legend
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Water legend
+            Box(
+                modifier = Modifier
+                    .width(16.dp)
+                    .height(16.dp)
+                    .background(waterColor, RoundedCornerShape(4.dp))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Water (L)",
+                style = MaterialTheme.typography.bodySmall,
+                color = textColor
+            )
+            
+            Spacer(modifier = Modifier.width(24.dp))
+            
+            // Energy legend
+            Box(
+                modifier = Modifier
+                    .width(16.dp)
+                    .height(16.dp)
+                    .background(energyColor, RoundedCornerShape(4.dp))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Energy (kWh)",
+                style = MaterialTheme.typography.bodySmall,
+                color = textColor
+            )
+        }
+        
         // Add bottom padding for labels
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -1278,103 +1505,231 @@ fun MonthlyBarChartCard(monthlyData: List<MonthlyData>) {
 @Composable
 fun MonthlyBarChart(monthlyData: List<MonthlyData>) {
     val maxEnergy = monthlyData.maxOfOrNull { it.energy } ?: 1f
-    val barColor = MaterialTheme.colorScheme.primary
+    val maxWater = monthlyData.maxOfOrNull { it.water.toFloat() } ?: 1f
+    
+    val energyColor = Color(0xFF31b84f) // Green for electricity
+    val waterColor = Color(0xFF2196F3) // Blue for water
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
     val textColor = MaterialTheme.colorScheme.onSurface
-    val inactiveColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     
     Column {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .padding(vertical = 8.dp)
-        ) {
-            val width = size.width
-            val height = size.height
-            val barWidth = width / 13
-            val barSpacing = 4f
-            
-            // Draw grid lines
-            for (i in 0..4) {
-                val y = height * (i / 4f)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(0f, y),
-                    end = Offset(width, y),
-                    strokeWidth = 1f
-                )
+        Row {
+            // Left Y-axis labels (Water - Blue)
+            Canvas(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val height = size.height
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    textSize = 14f
+                    color = android.graphics.Color.valueOf(
+                        waterColor.red,
+                        waterColor.green,
+                        waterColor.blue,
+                        waterColor.alpha
+                    ).toArgb()
+                }
+                
+                // Draw Water Y-axis labels (5 values: max to 0)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    val value = maxWater * (1f - i / 4f)
+                    val label = if (value >= 1f) String.format("%.0f", value) else String.format("%.2f", value)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        size.width - 8f,
+                        y + 5f,
+                        paint
+                    )
+                }
             }
             
-            // Draw bars with rounded corners and gradients
-            monthlyData.forEachIndexed { index, data ->
-                val barHeight = (data.energy / maxEnergy * height).coerceAtLeast(2f)
-                val x = index * barWidth + barSpacing
-                val barRectWidth = barWidth - barSpacing * 2
-                val isActive = data.energy > 0
-                val currentBarColor = if (isActive) barColor else inactiveColor
+            // Chart with dual bars and dual Y-axes
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp, horizontal = 2.dp)
+            ) {
+                val width = size.width
+                val height = size.height
+                val barWidth = width / 13
+                val singleBarWidth = (barWidth - 8f) / 2f // Each bar is half width with spacing
+                val barSpacing = 2f
                 
-                if (barHeight > 0 && barRectWidth > 0) {
-                    val barTop = height - barHeight
+                // Draw grid lines (horizontal)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(0f, y),
+                        end = Offset(width, y),
+                        strokeWidth = 1f
+                    )
+                }
+                
+                // Draw Y-axis line (left axis)
+                val axisColor = gridColor.copy(alpha = 0.5f)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, 0f),
+                    end = Offset(0f, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw Y-axis line (right axis for energy)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(width, 0f),
+                    end = Offset(width, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw X-axis line (bottom axis)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, height),
+                    end = Offset(width, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw dual bars: Water (blue) and Energy (green) with separate scales
+                monthlyData.forEachIndexed { index, data ->
+                    val baseX = index * barWidth
                     
-                    if (isActive) {
-                        // Draw bar shadow for active bars
-                        if (barHeight > 2f) {
-                            drawRoundRect(
-                                color = currentBarColor.copy(alpha = 0.2f),
-                                topLeft = Offset(x + 2f, barTop + 2f),
-                                size = Size(barRectWidth, barHeight),
-                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
-                            )
-                        }
-                        
-                        // Draw main bar - use solid color to avoid gradient issues
-                        val actualBarTop = if (barHeight > 2f) barTop else height - 2f
-                        val actualBarHeight = barHeight.coerceAtLeast(2f)
+                    // Calculate bar heights using their respective max values
+                    val energyHeight = (data.energy / maxEnergy * height).coerceAtLeast(2f)
+                    val waterHeight = (data.water.toFloat() / maxWater * height).coerceAtLeast(2f)
+                    
+                    // Draw Water bar (Blue) - left side, scaled to water max
+                    if (waterHeight > 0 && singleBarWidth > 0) {
+                        val waterX = baseX + barSpacing
+                        val waterTop = height - waterHeight
                         
                         drawRoundRect(
-                            color = currentBarColor,
-                            topLeft = Offset(x, actualBarTop),
-                            size = Size(barRectWidth, actualBarHeight),
+                            color = waterColor,
+                            topLeft = Offset(waterX, waterTop),
+                            size = Size(singleBarWidth, waterHeight),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
                         )
-                    } else {
-                        // Draw inactive bar
+                    }
+                    
+                    // Draw Energy bar (Green) - right side, scaled to energy max
+                    if (energyHeight > 0 && singleBarWidth > 0) {
+                        val energyX = baseX + singleBarWidth + barSpacing * 2
+                        val energyTop = height - energyHeight
+                        
                         drawRoundRect(
-                            color = currentBarColor,
-                            topLeft = Offset(x, barTop),
-                            size = Size(barRectWidth, barHeight.coerceAtLeast(2f)),
+                            color = energyColor,
+                            topLeft = Offset(energyX, energyTop),
+                            size = Size(singleBarWidth, energyHeight),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
                         )
                     }
                 }
+                
+                // Draw month labels with better styling
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = 18f
+                    color = android.graphics.Color.valueOf(
+                        textColor.red,
+                        textColor.green,
+                        textColor.blue,
+                        textColor.alpha
+                    ).toArgb()
+                    typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                }
+                
+                monthlyData.forEachIndexed { index, data ->
+                    val x = index * barWidth + barWidth / 2
+                    drawContext.canvas.nativeCanvas.drawText(
+                        data.month.toString(),
+                        x,
+                        height + 25f,
+                        paint
+                    )
+                }
             }
             
-            // Draw month labels with better styling
-            val paint = android.graphics.Paint().apply {
-                textAlign = android.graphics.Paint.Align.CENTER
-                textSize = 18f
-                color = android.graphics.Color.valueOf(
-                    textColor.red,
-                    textColor.green,
-                    textColor.blue,
-                    textColor.alpha
-                ).toArgb()
-                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-            }
-            
-            monthlyData.forEachIndexed { index, data ->
-                val x = index * barWidth + barWidth / 2
-                drawContext.canvas.nativeCanvas.drawText(
-                    data.month.toString(),
-                    x,
-                    height + 25f,
-                    paint
-                )
+            // Right Y-axis labels (Energy - Green)
+            Canvas(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val height = size.height
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.LEFT
+                    textSize = 14f
+                    color = android.graphics.Color.valueOf(
+                        energyColor.red,
+                        energyColor.green,
+                        energyColor.blue,
+                        energyColor.alpha
+                    ).toArgb()
+                }
+                
+                // Draw Energy Y-axis labels on the right (5 values: max to 0)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    val value = maxEnergy * (1f - i / 4f)
+                    val label = if (value >= 1f) String.format("%.2f", value) else String.format("%.3f", value)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        8f,
+                        y + 5f,
+                        paint
+                    )
+                }
             }
         }
+        
+        // Legend
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Water legend
+            Box(
+                modifier = Modifier
+                    .width(16.dp)
+                    .height(16.dp)
+                    .background(waterColor, RoundedCornerShape(4.dp))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Water (L)",
+                style = MaterialTheme.typography.bodySmall,
+                color = textColor
+            )
+            
+            Spacer(modifier = Modifier.width(24.dp))
+            
+            // Energy legend
+            Box(
+                modifier = Modifier
+                    .width(16.dp)
+                    .height(16.dp)
+                    .background(energyColor, RoundedCornerShape(4.dp))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Energy (kWh)",
+                style = MaterialTheme.typography.bodySmall,
+                color = textColor
+            )
+        }
+        
         // Add bottom padding for labels
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -1757,27 +2112,79 @@ fun CustomRangeBarChart(data: List<DailyData>) {
     val inactiveColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     
     Column {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .padding(vertical = 8.dp)
-        ) {
-            val width = size.width
-            val height = size.height
-            val barWidth = if (data.size > 0) width / (data.size + 2) else 20f
-            val barSpacing = 4f
-            
-            // Draw grid lines
-            for (i in 0..4) {
-                val y = height * (i / 4f)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(0f, y),
-                    end = Offset(width, y),
-                    strokeWidth = 1f
-                )
+        Row {
+            // Y-axis labels
+            Canvas(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(200.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val height = size.height
+                val paint = android.graphics.Paint().apply {
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    textSize = 16f
+                    color = android.graphics.Color.valueOf(
+                        textColor.red,
+                        textColor.green,
+                        textColor.blue,
+                        textColor.alpha
+                    ).toArgb()
+                }
+                
+                // Draw Y-axis labels (5 values: max to 0)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    val value = maxEnergy * (1f - i / 4f)
+                    val label = if (value >= 1f) String.format("%.1f", value) else String.format("%.2f", value)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        size.width - 8f,
+                        y + 5f,
+                        paint
+                    )
+                }
             }
+            
+            // Chart
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .padding(vertical = 8.dp, horizontal = 2.dp)
+            ) {
+                val width = size.width
+                val height = size.height
+                val barWidth = if (data.size > 0) width / (data.size + 2) else 20f
+                val barSpacing = 4f
+                
+                // Draw grid lines (horizontal)
+                for (i in 0..4) {
+                    val y = height * (i / 4f)
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(0f, y),
+                        end = Offset(width, y),
+                        strokeWidth = 1f
+                    )
+                }
+                
+                // Draw Y-axis line (left axis)
+                val axisColor = gridColor.copy(alpha = 0.5f)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, 0f),
+                    end = Offset(0f, height),
+                    strokeWidth = 2f
+                )
+                
+                // Draw X-axis line (bottom axis)
+                drawLine(
+                    color = axisColor,
+                    start = Offset(0f, height),
+                    end = Offset(width, height),
+                    strokeWidth = 2f
+                )
             
             // Draw bars with rounded corners
             data.forEachIndexed { index, dayData ->
@@ -1870,6 +2277,7 @@ fun CustomRangeBarChart(data: List<DailyData>) {
                     height + 25f,
                     paint
                 )
+            }
             }
         }
         // Add bottom padding for labels
