@@ -81,6 +81,9 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.0")
     implementation("androidx.activity:activity-ktx:1.8.0")
     
+    // Fragment (required for ActivityResult APIs)
+    implementation("androidx.fragment:fragment-ktx:1.8.2")
+    
     // Coil for image loading
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
