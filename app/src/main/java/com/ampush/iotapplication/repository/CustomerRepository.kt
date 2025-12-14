@@ -5,6 +5,7 @@ import com.ampush.iotapplication.network.CustomerApiClient
 import com.ampush.iotapplication.network.LoginRequest
 import com.ampush.iotapplication.network.UpdateProfileRequest
 import com.ampush.iotapplication.network.ChangePasswordRequest
+import com.ampush.iotapplication.network.DeleteAccountRequest
 import com.ampush.iotapplication.network.RetrofitClient
 import com.ampush.iotapplication.utils.Logger
 import kotlinx.coroutines.Dispatchers
@@ -214,6 +215,44 @@ class CustomerRepository {
             }
         } catch (e: Exception) {
             Logger.e("Logout error", e, "CUSTOMER_API")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Delete account
+     */
+    suspend fun deleteAccount(token: String, password: String): Result<ApiResponse> = withContext(Dispatchers.IO) {
+        try {
+            Logger.d("Deleting customer account", "CUSTOMER_API")
+            
+            val request = DeleteAccountRequest(
+                password = password,
+                confirmation = "DELETE MY ACCOUNT"
+            )
+            val response = apiService.deleteAccount("Bearer $token", request)
+            
+            if (response.isSuccessful) {
+                val apiResponse = response.body()
+                if (apiResponse != null) {
+                    Logger.i("Account deleted successfully", "CUSTOMER_API")
+                    Result.success(apiResponse)
+                } else {
+                    Logger.e("Empty response body", null, "CUSTOMER_API")
+                    Result.failure(Exception("Empty response body"))
+                }
+            } else {
+                val errorMessage = "Delete account failed: ${response.code()} - ${response.message()}"
+                Logger.e(errorMessage, null, "CUSTOMER_API")
+                
+                // Try to parse error message from response
+                val errorBody = response.errorBody()?.string()
+                Logger.e("Error body: $errorBody", null, "CUSTOMER_API")
+                
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Logger.e("Delete account error", e, "CUSTOMER_API")
             Result.failure(e)
         }
     }

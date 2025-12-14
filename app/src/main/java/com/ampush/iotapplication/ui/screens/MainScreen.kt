@@ -29,6 +29,7 @@ fun MainScreen() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val context = LocalContext.current
     
     // Default device dialog state
     var showDefaultDeviceDialog by remember { mutableStateOf(false) }
@@ -36,6 +37,7 @@ fun MainScreen() {
     
     Scaffold(
         topBar = {
+            val isDetailScreen = currentRoute in listOf("help_support", "privacy_policy", "terms_of_service", "fcm_debug", "delete_account")
             TopAppBar(
                 title = {
                     Text(
@@ -44,65 +46,101 @@ fun MainScreen() {
                             NavigationItem.Reports.route -> "Reports"
                             NavigationItem.History.route -> "Motor History"
                             NavigationItem.Profile.route -> "Profile"
+                            "help_support" -> "Help & Support"
+                            "privacy_policy" -> "Privacy Policy"
+                            "terms_of_service" -> "Terms of Service"
+                            "fcm_debug" -> "FCM Debug"
+                            "delete_account" -> "Delete Account"
                             else -> "IoT Control"
                         },
                         fontWeight = FontWeight.Bold
                     )
+                },
+                navigationIcon = {
+                    if (isDetailScreen) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
-                    IconButton(onClick = { /* TODO: Notifications */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications"
-                        )
-                    }
-                    IconButton(onClick = { showDefaultDeviceDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
-                        )
+                    if (!isDetailScreen) {
+                        IconButton(onClick = { /* TODO: Notifications */ }) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Notifications"
+                            )
+                        }
+                        IconButton(onClick = { showDefaultDeviceDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings"
+                            )
+                        }
+                    } else if (currentRoute == "privacy_policy") {
+                        // Show "View Online" button for Privacy Policy
+                        IconButton(
+                            onClick = {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse("https://ampushworks.com/privacy-policy")
+                                }
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "View Online"
+                            )
+                        }
                     }
                 }
             )
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ) {
-                navigationItems.forEach { item ->
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.title
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = item.title,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        selected = currentRoute == item.route,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
+            // Only show bottom navigation bar for main tab screens
+            val showBottomBar = currentRoute in navigationItems.map { it.route }
+            if (showBottomBar) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    navigationItems.forEach { item ->
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.title
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            selected = currentRoute == item.route,
+                            onClick = {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -122,10 +160,22 @@ fun MainScreen() {
                 HistoryScreen()
             }
             composable(NavigationItem.Profile.route) {
-                ProfileScreen()
+                ProfileScreen(navController = navController)
             }
             composable("fcm_debug") {
                 FcmDebugScreen()
+            }
+            composable("help_support") {
+                HelpSupportScreen(navController = navController)
+            }
+            composable("privacy_policy") {
+                PrivacyPolicyScreen(navController = navController)
+            }
+            composable("terms_of_service") {
+                TermsOfServiceScreen(navController = navController)
+            }
+            composable("delete_account") {
+                DeleteAccountScreen(navController = navController)
             }
         }
         

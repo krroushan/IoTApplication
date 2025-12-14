@@ -53,6 +53,12 @@ interface CustomerApiService {
         @Header("Authorization") token: String
     ): Response<ApiResponse>
     
+    @DELETE("customer/account")
+    suspend fun deleteAccount(
+        @Header("Authorization") token: String,
+        @Body request: DeleteAccountRequest
+    ): Response<ApiResponse>
+    
     @POST("customer/refresh-token")
     suspend fun refreshToken(
         @Header("Authorization") token: String
@@ -81,5 +87,10 @@ data class ChangePasswordRequest(
     val current_password: String,
     val password: String,
     val password_confirmation: String
+)
+
+data class DeleteAccountRequest(
+    val password: String,
+    val confirmation: String
 )
 

@@ -42,14 +42,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(navController: NavController? = null) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val customerRepository = remember { CustomerRepository() }
-    val deviceManager = remember { DeviceManager(context) }
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     
+    // Get NavController from composition if not provided
+    val finalNavController = navController ?: run {
+        // Try to get from LocalNavController if available
+        // For now, we'll pass it from MainScreen
+        null
+    }
     
     // Track if profile header is visible for lazy loading
     val isProfileHeaderVisible by remember {
@@ -77,12 +82,12 @@ fun ProfileScreen() {
         
         // Devices Section
         item {
-            DevicesSection(sessionManager, context)
+            DevicesSection(sessionManager, context, finalNavController)
         }
         
         // About Section
         item {
-            AboutSection(sessionManager, context, coroutineScope, customerRepository)
+            AboutSection(sessionManager, context, coroutineScope, customerRepository, finalNavController)
         }
     }
 }
@@ -344,36 +349,95 @@ private fun CustomerInfoRow(
 private fun AboutItem(
     icon: ImageVector,
     title: String,
-    subtitle: String
+    subtitle: String,
+    onClick: (() -> Unit)?
 ) {
-    Row(
-        modifier = Modifier
+    val cardModifier = if (onClick != null) {
+        Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        Column(
-            modifier = Modifier.weight(1f)
+            .padding(vertical = 4.dp)
+    } else {
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    }
+    
+    if (onClick != null) {
+        Card(
+            modifier = cardModifier,
+            onClick = onClick,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            shape = RoundedCornerShape(8.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "Navigate",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -383,7 +447,8 @@ private fun AboutSection(
     sessionManager: SessionManager, 
     context: android.content.Context,
     coroutineScope: kotlinx.coroutines.CoroutineScope,
-    customerRepository: CustomerRepository
+    customerRepository: CustomerRepository,
+    navController: NavController?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -403,25 +468,35 @@ private fun AboutSection(
             AboutItem(
                 icon = Icons.Default.Info,
                 title = "App Version",
-                subtitle = "1.0.0 (Build 1)"
+                subtitle = "1.0.0 (Build 1)",
+                onClick = null
             )
             
             AboutItem(
                 icon = Icons.Default.Info,
                 title = "Help & Support",
-                subtitle = "FAQ, contact us"
+                subtitle = "FAQ, contact us",
+                onClick = {
+                    navController?.navigate("help_support")
+                }
             )
             
             AboutItem(
                 icon = Icons.Default.Lock,
                 title = "Privacy Policy",
-                subtitle = "How we handle your data"
+                subtitle = "How we handle your data",
+                onClick = {
+                    navController?.navigate("privacy_policy")
+                }
             )
             
             AboutItem(
                 icon = Icons.Default.Info,
                 title = "Terms of Service",
-                subtitle = "Legal terms and conditions"
+                subtitle = "Legal terms and conditions",
+                onClick = {
+                    navController?.navigate("terms_of_service")
+                }
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -469,10 +544,9 @@ private fun AboutSection(
 }
 
 @Composable
-private fun DevicesSection(sessionManager: SessionManager, context: android.content.Context) {
+private fun DevicesSection(sessionManager: SessionManager, context: android.content.Context, navController: NavController?) {
     val deviceManager = remember { DeviceManager(context) }
     val fcmTokenManager = remember { FcmTokenManager(context) }
-    val customerRepository = remember { CustomerRepository() }
     val coroutineScope = rememberCoroutineScope()
     var devices by remember { mutableStateOf(deviceManager.getSavedDevices()) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -568,9 +642,9 @@ private fun DevicesSection(sessionManager: SessionManager, context: android.cont
                            // FCM Debug Button
                            IconButton(
                                onClick = {
-                                   // For now, just log the debug button click
-                                   // Navigation will be handled by the parent composable
-                                   Logger.d("FCM Debug button clicked", "PROFILE")
+                                   navController?.navigate("fcm_debug") ?: run {
+                                       Logger.d("FCM Debug button clicked - NavController not available", "PROFILE")
+                                   }
                                }
                            ) {
                            Icon(
