@@ -75,6 +75,13 @@ fun DeleteAccountScreen(navController: androidx.navigation.NavController) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
+                    text = "Ampush Motor Controller",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
                     text = "This action cannot be undone",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onErrorContainer,
@@ -132,6 +139,19 @@ fun DeleteAccountScreen(navController: androidx.navigation.NavController) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Divider()
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = "By AMPUSHWORKS ENTERPRISES PRIVATE LIMITED",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -265,10 +285,18 @@ fun DeleteAccountScreen(navController: androidx.navigation.NavController) {
                 )
             },
             text = {
-                Text(
-                    text = "Are you absolutely sure you want to delete your account? This action is permanent and cannot be undone. All your data will be permanently deleted.",
-                    textAlign = TextAlign.Start
-                )
+                Column {
+                    Text(
+                        text = "Are you absolutely sure you want to delete your Ampush Motor Controller account?",
+                        textAlign = TextAlign.Start,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "This action is permanent and cannot be undone. All your data with AMPUSHWORKS ENTERPRISES PRIVATE LIMITED will be permanently deleted.",
+                        textAlign = TextAlign.Start
+                    )
+                }
             },
             confirmButton = {
                 Button(
